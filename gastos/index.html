@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mis Gastos</title>
+<meta name="description" content="Anota tus consumos con tarjeta de crédito y tus gastos generales, incluso desde las notificaciones del banco.">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <h1>Mis Gastos</h1>
+    <div class="top-actions">
+      <button id="btn-paste" class="icon-btn" aria-label="Pegar notificación" title="Pegar notificación">📋</button>
+      <button id="btn-menu" class="icon-btn" aria-label="Opciones" title="Opciones">⋮</button>
+    </div>
+  </div>
+  <div class="month-nav">
+    <button id="prev-month" class="icon-btn" aria-label="Mes anterior">‹</button>
+    <span id="month-label"></span>
+    <button id="next-month" class="icon-btn" aria-label="Mes siguiente">›</button>
+  </div>
+  <div class="total-box">
+    <div class="total-label">Gastado este mes</div>
+    <div id="month-total" class="total-amount">S/ 0.00</div>
+    <div id="month-sub" class="total-sub"></div>
+    <div id="budget-bar" class="budget-bar hidden"><div id="budget-fill"></div></div>
+  </div>
+</header>
+
+<main>
+  <nav class="tabs">
+    <button class="tab active" data-tab="cards">Tarjetas</button>
+    <button class="tab" data-tab="general">Generales</button>
+    <button class="tab" data-tab="stats">Resumen</button>
+  </nav>
+
+  <section id="tab-cards">
+    <div id="card-summary" class="card-grid"></div>
+    <div class="filter-row">
+      <select id="card-filter" aria-label="Filtrar por tarjeta"></select>
+    </div>
+    <div id="card-list"></div>
+    <p id="card-empty" class="empty hidden">Sin consumos con tarjeta este mes.</p>
+  </section>
+
+  <section id="tab-general" class="hidden">
+    <input id="search" type="search" placeholder="Buscar por descripción o categoría…">
+    <div id="general-list"></div>
+    <p id="general-empty" class="empty hidden">Sin gastos generales este mes.<br>Toca <strong>+</strong> para anotar uno.</p>
+  </section>
+
+  <section id="tab-stats" class="hidden">
+    <h2>Por tarjeta / medio de pago</h2>
+    <div id="method-breakdown"></div>
+    <h2>Por categoría</h2>
+    <div id="cat-breakdown"></div>
+    <h2>Últimos 6 meses</h2>
+    <div id="month-history" class="history"></div>
+  </section>
+</main>
+
+<button id="fab" class="fab" aria-label="Agregar pago">+</button>
+
+<!-- Agregar / editar pago -->
+<dialog id="expense-dialog">
+  <form id="expense-form" method="dialog">
+    <h2 id="dialog-title">Nuevo pago</h2>
+    <div id="parsed-note" class="parsed-note hidden"></div>
+    <div class="row">
+      <div class="field grow2">
+        <label for="f-amount">Monto</label>
+        <input id="f-amount" type="text" inputmode="decimal" required placeholder="0.00" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="f-currency">Moneda</label>
+        <select id="f-currency">
+          <option value="PEN">S/ Soles</option>
+          <option value="USD">US$ Dólares</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>¿Con qué pagaste?</label>
+      <div id="pay-picker" class="chips"></div>
+    </div>
+    <div class="field">
+      <label>Categoría</label>
+      <div id="cat-picker" class="chips"></div>
+    </div>
+    <div class="field">
+      <label for="f-desc">Comercio / descripción</label>
+      <input id="f-desc" type="text" placeholder="Ej: Wong, Netflix, almuerzo…" maxlength="80" list="desc-suggestions">
+      <datalist id="desc-suggestions"></datalist>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="f-date">Fecha</label>
+        <input id="f-date" type="date" required>
+      </div>
+      <div class="field">
+        <label for="f-installments">Cuotas</label>
+        <input id="f-installments" type="number" min="1" max="60" value="1">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-delete" class="btn danger hidden">Eliminar</button>
+      <span class="spacer"></span>
+      <button type="button" id="btn-cancel" class="btn ghost">Cancelar</button>
+      <button type="submit" class="btn">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Pegar notificación -->
+<dialog id="paste-dialog">
+  <form method="dialog" id="paste-form">
+    <h2>Pegar notificación del banco</h2>
+    <p class="hint">Copia el texto de la notificación (o SMS / correo) del consumo y pégalo aquí. La app detecta el monto, la moneda, el comercio y la tarjeta.</p>
+    <div class="field">
+      <textarea id="paste-text" rows="5" placeholder="Ej: Realizaste un consumo de S/ 45.90 con tu Tarjeta BCP Platinum en WONG SAN ISIDRO"></textarea>
+    </div>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button type="button" id="btn-paste-cancel" class="btn ghost">Cancelar</button>
+      <button type="submit" class="btn">Leer</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Opciones -->
+<dialog id="menu-dialog">
+  <form method="dialog" id="settings-form">
+    <h2>Opciones</h2>
+
+    <div class="field">
+      <label>Mis tarjetas de crédito</label>
+      <div id="cards-editor"></div>
+      <button type="button" id="btn-addcard" class="btn ghost full">+ Agregar tarjeta</button>
+      <p class="hint">Las <b>palabras clave</b> sirven para reconocer la tarjeta en la notificación (ej: "bcp, platinum" o los 4 últimos dígitos). El <b>día de cierre</b> es opcional: con él la app te muestra cuánto llevas en el ciclo de facturación actual.</p>
+    </div>
+
+    <div class="field">
+      <label for="s-rate">Tipo de cambio (S/ por 1 US$) para totales</label>
+      <input id="s-rate" type="text" inputmode="decimal" placeholder="3.75">
+    </div>
+    <div class="field">
+      <label for="s-budget">Presupuesto mensual en S/ (opcional)</label>
+      <input id="s-budget" type="text" inputmode="decimal" placeholder="Sin presupuesto">
+    </div>
+    <div class="field">
+      <label for="s-newcat">Agregar categoría</label>
+      <div class="row tight">
+        <input id="s-newcat" type="text" maxlength="24" placeholder="Ej: Mascotas">
+        <button type="button" id="btn-addcat" class="btn small">Agregar</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Registro automático (Android)</label>
+      <p class="hint">Con la app MacroDroid puedes hacer que cada notificación del banco se anote sola. Pasos en el README de la carpeta <code>gastos/</code>. Usa este enlace en la macro:</p>
+      <code id="auto-url" class="auto-url"></code>
+      <button type="button" id="btn-copy-url" class="btn ghost full">Copiar enlace</button>
+    </div>
+    <div class="field">
+      <label>Copia de seguridad</label>
+      <p class="hint">Tus datos se guardan solo en este celular. Descarga una copia de vez en cuando.</p>
+      <div class="stack">
+        <button type="button" id="btn-export-csv" class="btn ghost">Exportar a Excel (CSV)</button>
+        <button type="button" id="btn-export-json" class="btn ghost">Descargar copia de seguridad</button>
+        <label class="btn ghost file-btn">Restaurar copia
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
+        </label>
+      </div>
+    </div>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button type="button" id="btn-save-settings" class="btn">Listo</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast"></div>
+
+<script src="parser.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js'); });
+  }
+</script>
+</body>
+</html>

@@ -9,6 +9,11 @@ También incluye, en `portal/`, una página aparte donde tus clientes se
 registran solos, pagan con Mercado Pago y ven su propio estado — ver
 [`portal/README.md`](portal/README.md).
 
+En `gastos/` hay además una **app aparte, independiente**, para anotar tus
+propios gastos (tarjetas de crédito y consumos generales), incluso
+automáticamente desde las notificaciones del banco — ver
+[`gastos/README.md`](gastos/README.md).
+
 ## Sobre el bloqueo
 
 Netflix **no ofrece una API pública** para que una app externa quite el
