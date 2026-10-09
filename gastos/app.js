@@ -46,7 +46,9 @@
       ],
       categories: DEFAULT_CATEGORIES.slice(),
       rate: 3.75,
-      budget: null
+      budget: null,
+      settingsUpdated: 0,
+      deleted: []
     };
   }
 
@@ -61,7 +63,9 @@
         cards: Array.isArray(s.cards) ? s.cards : d.cards,
         categories: Array.isArray(s.categories) && s.categories.length ? s.categories : d.categories,
         rate: s.rate > 0 ? s.rate : d.rate,
-        budget: s.budget > 0 ? s.budget : null
+        budget: s.budget > 0 ? s.budget : null,
+        settingsUpdated: s.settingsUpdated || 0,
+        deleted: Array.isArray(s.deleted) ? s.deleted : []
       };
     } catch (e) {
       return defaultState();
@@ -77,6 +81,34 @@
   }
 
   var state = load();
+
+  // ---------- Sincronización (sync.js se registra aquí) ----------
+  // Cada pago lleva `synced`: true cuando ya está en tu servidor. Los que se
+  // borran quedan en state.deleted hasta que el servidor confirma el
+  // borrado, así no se pierde nada si no hay señal.
+
+  var cloud = null;
+
+  function expenseChanged(e){
+    e.synced = false;
+    e.updated = Date.now();
+    save();
+    if (cloud) cloud.putExpense(e);
+  }
+
+  function expenseDeleted(e){
+    // siempre se avisa al servidor: el pago pudo haberse subido aunque aún no esté confirmado
+    if (state.deleted.indexOf(e.id) < 0) state.deleted.push(e.id);
+    save();
+    if (cloud) cloud.deleteExpense(e.id);
+  }
+
+  function settingsChanged(){
+    state.settingsUpdated = Date.now();
+    save();
+    if (cloud) cloud.putSettings();
+  }
+
   var viewYear, viewMonth; // mes que se está viendo
   var currentTab = 'cards';
   var editingId = null;
@@ -436,7 +468,7 @@
   function addExpense(data){
     var e = Object.assign({ id: uid(), created: Date.now() }, data);
     state.expenses.push(e);
-    save();
+    expenseChanged(e);
     return e;
   }
 
@@ -470,7 +502,7 @@
     if (editingId) {
       var e = state.expenses.find(function(x){ return x.id === editingId; });
       Object.assign(e, data);
-      save();
+      expenseChanged(e);
       toast('Pago actualizado');
     } else {
       if (pendingRaw) data.raw = pendingRaw;
@@ -486,8 +518,9 @@
 
   $('btn-delete').addEventListener('click', function(){
     if (!editingId || !confirm('¿Eliminar este pago?')) return;
+    var gone = state.expenses.find(function(x){ return x.id === editingId; });
     state.expenses = state.expenses.filter(function(x){ return x.id !== editingId; });
-    save();
+    expenseDeleted(gone);
     $('expense-dialog').close();
     toast('Pago eliminado');
     render();
@@ -649,7 +682,7 @@
     if (!confirm('¿Eliminar la tarjeta ' + card.name + '?' + (used ? ' Sus ' + used + ' consumos quedarán como "Tarjeta eliminada".' : ''))) return;
     readCardsEditor();
     state.cards = state.cards.filter(function(c){ return c.id !== card.id; });
-    save();
+    settingsChanged();
     renderCardsEditor();
   });
 
@@ -657,7 +690,7 @@
     readCardsEditor();
     state.cards.push({ id: uid(), name: 'Nueva tarjeta', last4: '', closingDay: '', keywords: '',
       color: CARD_COLORS[state.cards.length % CARD_COLORS.length] });
-    save();
+    settingsChanged();
     renderCardsEditor();
     var inputs = document.querySelectorAll('.card-edit [data-k="name"]');
     var last = inputs[inputs.length - 1];
@@ -675,7 +708,7 @@
     var rate = parseAmount($('s-rate').value);
     if (rate) state.rate = rate;
     state.budget = parseAmount($('s-budget').value);
-    save();
+    settingsChanged();
     $('menu-dialog').close();
     render();
   });
@@ -687,7 +720,7 @@
       toast('Esa categoría ya existe'); return;
     }
     state.categories.splice(state.categories.length - 1, 0, { name: name, emoji: '🏷️' });
-    save();
+    settingsChanged();
     $('s-newcat').value = '';
     toast('Categoría "' + name + '" agregada');
   });
@@ -715,7 +748,8 @@
   });
 
   $('btn-export-json').addEventListener('click', function(){
-    download('gastos-backup-' + todayISO() + '.json', JSON.stringify(state, null, 1), 'application/json');
+    var copy = Object.assign({}, state, { deleted: [] });
+    download('gastos-backup-' + todayISO() + '.json', JSON.stringify(copy, null, 1), 'application/json');
   });
 
   $('import-file').addEventListener('change', function(){
@@ -727,8 +761,19 @@
         var data = JSON.parse(reader.result);
         if (!Array.isArray(data.expenses)) throw new Error('formato');
         if (!confirm('Esto reemplazará tus datos actuales por la copia (' + data.expenses.length + ' pagos). ¿Continuar?')) return;
+        // Los pagos que ya estaban en el servidor y no vienen en la copia se borran allá también.
+        var keep = {};
+        data.expenses.forEach(function(e){ keep[e.id] = 1; });
+        var deleted = state.deleted.concat(state.expenses
+          .filter(function(e){ return e.synced && !keep[e.id]; })
+          .map(function(e){ return e.id; }));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         state = load();
+        state.deleted = deleted;
+        state.expenses.forEach(function(e){ e.synced = false; });
+        state.settingsUpdated = Date.now();
+        save();
+        if (cloud) cloud.resync();
         $('menu-dialog').close();
         render();
         toast('Copia restaurada');
@@ -772,6 +817,15 @@
   });
 
   $('fab').addEventListener('click', function(){ openExpense(null); });
+
+  // Puente para sync.js
+  window.GastosApp = {
+    getState: function(){ return state; },
+    save: save,
+    render: render,
+    toast: toast,
+    registerCloud: function(c){ cloud = c; }
+  };
 
   setTab('cards');
   handleIncoming();

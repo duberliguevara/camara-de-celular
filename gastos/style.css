@@ -241,3 +241,12 @@ textarea {
   display: block; font-size: 0.75rem; background: var(--bg); border-radius: 8px;
   padding: 8px; word-break: break-all; margin-bottom: 8px;
 }
+
+/* Estado de sincronización */
+.sync-status {
+  display: block; margin: 12px auto 0; border: 0; cursor: pointer;
+  background: rgba(255,255,255,0.15); color: #fff; font: inherit; font-size: 0.78rem;
+  padding: 6px 12px; border-radius: 999px; max-width: 100%;
+}
+.sync-status[data-kind="error"] { background: rgba(254,202,202,0.35); }
+.mt8 { margin-top: 8px; }

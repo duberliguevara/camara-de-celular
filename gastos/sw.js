@@ -1,10 +1,11 @@
-const CACHE_NAME = 'mis-gastos-v1';
+const CACHE_NAME = 'mis-gastos-v2';
 const ASSETS = [
   './',
   'index.html',
   'style.css',
   'app.js',
   'parser.js',
+  'sync.js',
   'manifest.json',
   'icons/icon-192.png',
   'icons/icon-512.png'
@@ -35,7 +36,8 @@ self.addEventListener('activate', function(event){
 // so the app keeps working completely offline.
 self.addEventListener('fetch', function(event){
   var url = new URL(event.request.url);
-  if (url.origin !== self.location.origin || event.request.method !== 'GET') return;
+  // La API del servidor nunca se guarda en caché.
+  if (url.origin !== self.location.origin || event.request.method !== 'GET' || url.pathname.indexOf('/api/') === 0) return;
 
   event.respondWith(
     fetch(event.request)

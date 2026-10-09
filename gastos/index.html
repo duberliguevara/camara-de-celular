@@ -32,6 +32,7 @@
     <div id="month-sub" class="total-sub"></div>
     <div id="budget-bar" class="budget-bar hidden"><div id="budget-fill"></div></div>
   </div>
+  <button id="sync-status" class="sync-status" title="Sincronizar ahora">📱 Solo en este celular</button>
 </header>
 
 <main>
@@ -140,6 +141,15 @@
     <h2>Opciones</h2>
 
     <div class="field">
+      <label>Mi base de datos (Cloudflare)</label>
+      <p class="hint">Tus gastos se guardan en tu base D1 de Cloudflare. Si abriste la app desde su dirección de Cloudflare (…pages.dev), deja la dirección vacía y solo escribe la clave que pusiste en el secreto <code>CLAVE</code>.</p>
+      <input id="server-url" type="url" inputmode="url" autocomplete="off" placeholder="https://mis-gastos.pages.dev">
+      <input id="server-key" type="password" autocomplete="off" placeholder="Clave (secreto CLAVE)" class="mt8">
+      <button type="button" id="btn-server-save" class="btn ghost full mt8">Guardar y conectar</button>
+      <p id="server-state" class="hint mt8"></p>
+    </div>
+
+    <div class="field">
       <label>Mis tarjetas de crédito</label>
       <div id="cards-editor"></div>
       <button type="button" id="btn-addcard" class="btn ghost full">+ Agregar tarjeta</button>
@@ -169,7 +179,7 @@
     </div>
     <div class="field">
       <label>Copia de seguridad</label>
-      <p class="hint">Tus datos se guardan solo en este celular. Descarga una copia de vez en cuando.</p>
+      <p class="hint">Además de Cloudflare, puedes descargar una copia en un archivo.</p>
       <div class="stack">
         <button type="button" id="btn-export-csv" class="btn ghost">Exportar a Excel (CSV)</button>
         <button type="button" id="btn-export-json" class="btn ghost">Descargar copia de seguridad</button>
@@ -189,6 +199,7 @@
 
 <script src="parser.js"></script>
 <script src="app.js"></script>
+<script src="sync.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js'); });

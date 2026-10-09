@@ -12,17 +12,44 @@ todos tus pagos desde el celular:
   últimos 6 meses.
 
 Soles y dólares por separado (los totales convierten US$ a S/ con el tipo
-de cambio que pongas en Opciones). Funciona sin internet. Los datos se
-guardan **solo en tu celular**; usa *Opciones → Descargar copia de
-seguridad* de vez en cuando, y *Exportar a Excel* si quieres analizarlos.
+de cambio que pongas en Opciones).
 
-## Instalar en el celular
+**Dónde se guardan los datos:** primero en el celular (así funciona sin
+señal) y, apenas hay internet, se suben a **tu base de datos D1 de
+Cloudflare**. Lo que anotes en un dispositivo aparece en los demás.
 
-La app tiene que estar publicada en una dirección `https://` (GitHub
-Pages, Netlify, Firebase Hosting, etc.). Ábrela en **Chrome** desde el
-celular → menú ⋮ → **Instalar app** / *Agregar a pantalla principal*.
+## Publicar en Cloudflare e instalar en el celular
 
-En iPhone: ábrela en Safari → Compartir → *Agregar a inicio*.
+Todo se hace desde el panel de Cloudflare (dash.cloudflare.com), con tu
+cuenta. Es gratis.
+
+1. **Workers & Pages → Create → Pages → Connect to Git.** Autoriza GitHub
+   y elige el repositorio `camara-de-celular`.
+2. Configuración del proyecto:
+   - *Project name*: `mis-gastos` (será tu dirección:
+     `mis-gastos.pages.dev`).
+   - *Production branch*: la rama donde está esta carpeta
+     (`claude/netflix-account-sales-app-3d2ndm` mientras no se junte con
+     `main`).
+   - *Framework preset*: **None**. *Build command*: vacío.
+   - *Root directory* (en *Advanced*): **`gastos`**.
+   - **Save and Deploy.**
+3. En el proyecto → **Settings → Bindings → Add → D1 database**:
+   - *Variable name*: **`DB`**
+   - *D1 database*: elige una de tus bases. Las tablas se crean solas con
+     el prefijo `gastos_`, así que no tocan lo que ya tengas ahí.
+4. **Settings → Variables and Secrets → Add**: tipo **Secret**, nombre
+   **`CLAVE`**, y como valor una clave larga que inventes (es la que te
+   pedirá la app).
+5. **Deployments → … → Retry deployment** para que tome la base y la clave.
+6. En el celular abre `https://mis-gastos.pages.dev` en **Chrome** → menú ⋮
+   → **Instalar app** (o *Agregar a pantalla principal*). En iPhone: Safari
+   → Compartir → *Agregar a inicio*.
+7. En la app: **Opciones (⋮) → Mi base de datos** → escribe tu clave →
+   **Guardar y conectar**. Arriba debe decir "☁️ Guardado en Cloudflare".
+
+Haz el paso 7 en cada celular o navegador donde la uses. Los gastos que ya
+tenías en el celular se suben solos al conectar.
 
 ## Anotar desde las notificaciones
 
@@ -77,8 +104,9 @@ Si no quieres usar texto libre, el enlace también acepta datos directos:
 
 ```bash
 cd gastos
-python3 -m http.server 8080
-# abre http://localhost:8080
+echo CLAVE=prueba123 > .dev.vars
+npx wrangler pages dev . --d1 DB=gastos-prueba
+# abre http://localhost:8788 y en Opciones usa la clave prueba123
 ```
 
 ## Archivos
@@ -86,6 +114,9 @@ python3 -m http.server 8080
 - `index.html`, `style.css` — pantallas y estilos.
 - `app.js` — lógica: guardar pagos, totales, tarjetas, opciones, copia de
   seguridad.
+- `sync.js` — sube y baja los gastos de tu base de Cloudflare.
+- `functions/api/[[route]].js` — la API que corre en Cloudflare y guarda
+  en D1 (tablas `gastos_pagos` y `gastos_ajustes`).
 - `parser.js` — lee el texto de una notificación y saca monto, moneda,
   comercio, fecha y tarjeta.
 - `manifest.json`, `sw.js`, `icons/` — instalación como app y
