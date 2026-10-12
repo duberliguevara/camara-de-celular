@@ -29,6 +29,9 @@ celular está por WiFi o por USB: `rtmp://127.0.0.1:1935/camstream`.
   arranca el servidor de video local (MediaMTX, incluido en
   `windows-app/mediamtx/`), muestra la IP de la PC para WiFi, y hace la
   conexión por USB con `adb reverse`.
+- [`whatsapp-bot/`](whatsapp-bot/) — proyecto aparte: bot de WhatsApp
+  (conexión por QR) que atiende los deliverys de Pucacha Finest Market y
+  Adita Corazón Heladería. Ver su propio README.
 
 ## 1. Instalar la app en el celular
 

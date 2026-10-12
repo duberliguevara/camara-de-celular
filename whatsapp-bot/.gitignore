@@ -1,0 +1,5 @@
+node_modules/
+.sesion-whatsapp/
+.wwebjs_cache/
+datos/
+qr.png
