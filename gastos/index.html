@@ -21,24 +21,34 @@
       <button id="btn-menu" class="icon-btn" aria-label="Opciones" title="Opciones">⋮</button>
     </div>
   </div>
+  <div class="mode-switch" role="tablist">
+    <button class="mode active" data-mode="gastos" role="tab">💸 Gastos</button>
+    <button class="mode" data-mode="deudas" role="tab">💳 Deudas</button>
+  </div>
+  <div id="gastos-head">
   <div class="month-nav">
     <button id="prev-month" class="icon-btn" aria-label="Mes anterior">‹</button>
     <span id="month-label"></span>
     <button id="next-month" class="icon-btn" aria-label="Mes siguiente">›</button>
   </div>
   <div class="total-box">
-    <div class="total-label">Gastado este mes</div>
+    <div id="month-total-label" class="total-label">Gastado este mes</div>
     <div id="month-total" class="total-amount">S/ 0.00</div>
     <div id="month-sub" class="total-sub"></div>
     <div id="budget-bar" class="budget-bar hidden"><div id="budget-fill"></div></div>
+  </div>
+  </div>
+  <div id="deudas-head" class="total-box hidden">
+    <div class="total-label">Debes en total en tus tarjetas</div>
+    <div id="debt-total" class="total-amount">S/ 0.00</div>
+    <div id="debt-sub" class="total-sub"></div>
   </div>
   <button id="sync-status" class="sync-status" title="Sincronizar ahora">📱 Solo en este celular</button>
 </header>
 
 <main>
-  <nav class="tabs">
-    <button class="tab active" data-tab="expenses">Gastos</button>
-    <button class="tab" data-tab="debts">Deudas</button>
+  <nav class="tabs" id="gastos-tabs">
+    <button class="tab active" data-tab="expenses">Lista de gastos</button>
     <button class="tab" data-tab="stats">Resumen</button>
   </nav>
 
@@ -52,13 +62,20 @@
   </section>
 
   <section id="tab-debts" class="hidden">
-    <p class="hint section-hint">Lo que debes en cada tarjeta: deuda anterior + consumos − pagos. Ni la deuda anterior ni los pagos de tarjeta cuentan como gasto del mes.</p>
+    <div id="convert-banner" class="convert-banner hidden">
+      <p id="convert-text"></p>
+      <div class="row tight">
+        <button type="button" id="btn-convert" class="btn small">Sí, son deudas anteriores</button>
+        <button type="button" id="btn-convert-no" class="btn small ghost">No, son gastos</button>
+      </div>
+    </div>
+    <p class="hint section-hint">Por tarjeta: deuda anterior + consumos − pagos. Esto <b>no</b> es lo que gastaste en el mes: eso está en 💸 Gastos.</p>
     <div id="card-summary" class="card-grid"></div>
     <div class="filter-row">
       <select id="card-filter" aria-label="Filtrar por tarjeta"></select>
     </div>
     <div id="card-list"></div>
-    <p id="card-empty" class="empty hidden">Sin consumos ni pagos de tarjeta este mes.</p>
+    <p id="card-empty" class="empty hidden">Sin movimientos de tarjeta.<br>Toca <strong>+</strong> para anotar un pago o una deuda anterior.</p>
   </section>
 
   <section id="tab-stats" class="hidden">

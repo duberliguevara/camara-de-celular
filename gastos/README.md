@@ -3,16 +3,19 @@
 App aparte (independiente de la app de clientes de streaming) para anotar
 todos tus pagos desde el celular:
 
-- **Gastos** — todo lo que pagas: con tarjeta de crédito, Yape, Plin,
-  débito, efectivo, servicios, celular... Es el "Gastado este mes".
-- **Deudas** — cuánto debes en cada tarjeta (SIP, iO, BCP Platinum,
-  editables): *deuda anterior* + consumos − *pagos de tarjeta*. Ni la deuda
-  anterior ni los pagos de tarjeta cuentan como gasto (las compras ya se
-  contaron). Se anotan con **+** eligiendo "📌 Deuda anterior" o
-  "💸 Pago de tarjeta"; los pagos también se detectan de avisos como
-  "Pagaste tu tarjeta…".
-- **Resumen** — en qué se va tu dinero por tarjeta, por categoría y en los
-  últimos 6 meses.
+Dos apartados separados (botones arriba):
+
+- **💸 Gastos** — todo lo que pagas: con tarjeta de crédito, Yape, Plin,
+  débito, efectivo, servicios, celular... Arriba: "Gastado en <mes>", con
+  navegación por mes. Dentro: lista de gastos y Resumen (por medio de pago,
+  por categoría, últimos 6 meses).
+- **💳 Deudas** — arriba: "Debes en total en tus tarjetas" (no depende del
+  mes). Por tarjeta: *deuda anterior* + consumos − *pagos de tarjeta*. Ni la
+  deuda anterior ni los pagos de tarjeta cuentan como gasto (las compras ya
+  se contaron). El **+** de este apartado anota un pago de tarjeta o una
+  deuda anterior; los pagos también se detectan de avisos como "Pagaste tu
+  tarjeta…". Si hay gastos que parecen deudas ("Tarjeta de crédito",
+  "saldo"...), la app ofrece convertirlos con un toque.
 
 Soles y dólares por separado (los totales convierten US$ a S/ con el tipo
 de cambio que pongas en Opciones).

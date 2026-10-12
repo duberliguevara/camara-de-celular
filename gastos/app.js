@@ -263,22 +263,40 @@
   // ---------- Render ----------
 
   function render(){
-    var monthAll = state.expenses.filter(function(e){ return inMonth(e, viewYear, viewMonth); });
-    var monthItems = monthAll.filter(isSpend);
+    var monthItems = state.expenses.filter(function(e){ return isSpend(e) && inMonth(e, viewYear, viewMonth); });
+    if (currentTab === 'debts') { renderDebtHeader(); renderCards(); return; }
     renderHeader(monthItems);
     if (currentTab === 'expenses') renderExpenses(monthItems);
-    else if (currentTab === 'debts') renderCards(monthItems, monthAll);
     else renderStats(monthItems);
+  }
+
+  function renderDebtHeader(){
+    var tot = { PEN: 0, USD: 0, total: 0 }, owing = 0;
+    state.cards.forEach(function(c){
+      var d = cardDebt(c);
+      if (d.PEN > 0) tot.PEN += d.PEN;
+      if (d.USD > 0) tot.USD += d.USD;
+      if (d.PEN > 0 || d.USD > 0) owing++;
+    });
+    tot.PEN = Math.round(tot.PEN * 100) / 100;
+    $('debt-total').textContent = tot.USD && !tot.PEN ? fmt(tot.USD, 'USD') : fmt(tot.PEN, 'PEN');
+    var sub = tot.USD && tot.PEN ? 'más ' + fmt(tot.USD, 'USD') + '\n' : '';
+    var now = new Date();
+    var paid = sums(state.expenses.filter(function(e){ return isPay(e) && inMonth(e, now.getFullYear(), now.getMonth()); }));
+    sub += owing ? 'En ' + owing + (owing === 1 ? ' tarjeta' : ' tarjetas') : 'No debes nada en tus tarjetas ✅';
+    if (paid.PEN || paid.USD) sub += ' · pagaste ' + sumText(paid) + ' este mes';
+    $('debt-sub').textContent = sub;
   }
 
   function renderHeader(items){
     var ml = monthName(viewYear, viewMonth);
     $('month-label').textContent = ml.charAt(0).toUpperCase() + ml.slice(1);
+    $('month-total-label').textContent = 'Gastado en ' + monthName(viewYear, viewMonth).split(' ')[0];
     var s = sums(items);
     $('month-total').textContent = fmt(s.total, 'PEN');
     var cardS = sums(items.filter(function(e){ return e.cardId; }));
     var genS = sums(items.filter(function(e){ return !e.cardId; }));
-    var sub = '💳 ' + fmt(cardS.total, 'PEN') + '  ·  💵 ' + fmt(genS.total, 'PEN');
+    var sub = 'Con tarjeta ' + fmt(cardS.total, 'PEN') + '  ·  Otros medios ' + fmt(genS.total, 'PEN');
     if (s.USD) sub += '\nIncluye ' + fmt(s.USD, 'USD') + ' (a S/ ' + state.rate + ')';
     $('month-sub').textContent = sub;
 
@@ -323,7 +341,8 @@
       '<span class="amt">' + fmt(e.amount, e.currency) + '</span></button>';
   }
 
-  function listHTML(items){
+  // En Deudas no se suma por día: mezclar consumos, deudas y pagos en un total confunde.
+  function listHTML(items, noDaySum){
     var groups = {};
     items.slice().sort(function(a, b){
       return b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0);
@@ -334,13 +353,16 @@
       label = label.charAt(0).toUpperCase() + label.slice(1);
       if (date === todayISO()) label = 'Hoy';
       return '<div class="day-group"><div class="day-head"><span>' + esc(label) + '</span><span>' +
-        sumText(sums(list.filter(isSpend))) + '</span></div><div class="day-card">' + list.map(itemHTML).join('') + '</div></div>';
+        (noDaySum ? '' : sumText(sums(list.filter(isSpend)))) + '</span></div><div class="day-card">' + list.map(itemHTML).join('') + '</div></div>';
     }).join('');
   }
 
-  function renderCards(items, allItems){
-    var cardItems = items.filter(function(e){ return e.cardId; });
-    var cardAll = allItems.filter(function(e){ return e.cardId; });
+  // Deudas no depende del mes que se mira en Gastos: es lo que se debe hoy.
+  function renderCards(){
+    var now = new Date();
+    var cardItems = state.expenses.filter(function(e){ return e.cardId && isSpend(e) && inMonth(e, now.getFullYear(), now.getMonth()); });
+    var cardAll = state.expenses.filter(function(e){ return e.cardId; });
+    renderConvertBanner();
 
     $('card-summary').innerHTML = state.cards.map(function(card){
       var mine = cardItems.filter(function(e){ return e.cardId === card.id; });
@@ -367,7 +389,7 @@
       return '<button class="cc" data-card="' + card.id + '" style="--cc:' + esc(card.color || CARD_COLORS[0]) + '">' +
         '<div class="cc-name">💳 ' + esc(card.name) + (card.last4 ? ' <span class="cc-last4">•••• ' + esc(card.last4) + '</span>' : '') + '</div>' +
         '<div class="cc-debt">' + debtHTML + '</div>' +
-        '<div class="cc-month">Consumos del mes: ' + sumText(s) + ' (' + mine.length + ')</div>' +
+        '<div class="cc-month">Consumos de este mes: ' + sumText(s) + ' (' + mine.length + ')</div>' +
         cycHTML + '</button>';
     }).join('') || '<p class="empty">Agrega tus tarjetas en Opciones (⋮).</p>';
 
@@ -378,7 +400,7 @@
     sel.value = cardById(cur) ? cur : '';
 
     var shown = sel.value ? cardAll.filter(function(e){ return e.cardId === sel.value; }) : cardAll;
-    $('card-list').innerHTML = listHTML(shown);
+    $('card-list').innerHTML = listHTML(shown, true);
     $('card-empty').classList.toggle('hidden', shown.length > 0);
   }
 
@@ -574,8 +596,18 @@
   // Los pagos de tarjeta viven en Deudas; todo lo demás es un gasto.
   function tabFor(e){ return isSpend(e) ? 'expenses' : 'debts'; }
 
+  var lastGastosTab = 'expenses';
+
   function setTab(tab){
     currentTab = tab;
+    var deudas = tab === 'debts';
+    if (!deudas) lastGastosTab = tab;
+    document.body.classList.toggle('mode-deudas', deudas);
+    document.querySelectorAll('.mode').forEach(function(b){ b.classList.toggle('active', b.dataset.mode === (deudas ? 'deudas' : 'gastos')); });
+    $('gastos-head').classList.toggle('hidden', deudas);
+    $('deudas-head').classList.toggle('hidden', !deudas);
+    $('gastos-tabs').classList.toggle('hidden', deudas);
+    $('fab').setAttribute('aria-label', deudas ? 'Anotar pago de tarjeta' : 'Agregar gasto');
     document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
     ['expenses', 'debts', 'stats'].forEach(function(t){ $('tab-' + t).classList.toggle('hidden', t !== tab); });
     render();
@@ -1077,7 +1109,49 @@
     if (item) openExpense(item.dataset.id);
   });
 
-  $('fab').addEventListener('click', function(){ openExpense(null); });
+  $('fab').addEventListener('click', function(){
+    openExpense(null, currentTab === 'debts' ? { kind: 'cardPayment' } : null);
+  });
+
+  document.querySelectorAll('.mode').forEach(function(b){
+    b.addEventListener('click', function(){ setTab(b.dataset.mode === 'deudas' ? 'debts' : lastGastosTab); });
+  });
+
+  // ---------- Registros que parecen deudas anotadas como gasto ----------
+  // Ej.: "Tarjeta de credito" S/ 3,232 anotado como consumo, cuando era lo que ya se debía.
+  var DISMISS_KEY = 'mis-gastos-no-son-deudas';
+  function dismissed(){ try { return JSON.parse(localStorage.getItem(DISMISS_KEY)) || []; } catch (e) { return []; } }
+
+  function debtLookalikes(){
+    var no = dismissed();
+    return state.expenses.filter(function(e){
+      return isSpend(e) && e.cardId && no.indexOf(e.id) < 0 &&
+        /tarjeta\s+de\s+cr[eé]dito|deuda|saldo|estado de cuenta/i.test(e.desc || '');
+    });
+  }
+
+  function renderConvertBanner(){
+    var list = debtLookalikes();
+    $('convert-banner').classList.toggle('hidden', !list.length);
+    if (!list.length) return;
+    var total = sums(list);
+    $('convert-text').textContent = (list.length === 1 ? 'Hay 1 registro que parece' : 'Hay ' + list.length + ' registros que parecen') +
+      ' lo que ya debías en tus tarjetas, pero está anotado como gasto (' + sumText(total) + ', ej. "' + list[0].desc + '" en ' +
+      payLabel(list[0]) + '). Por eso "Gastado" sale tan alto. ¿Son deudas anteriores?';
+  }
+
+  $('btn-convert').addEventListener('click', function(){
+    var list = debtLookalikes();
+    list.forEach(function(e){ e.kind = 'cardDebt'; e.cat = KIND_LABEL.cardDebt; expenseChanged(e); });
+    toast(list.length + (list.length === 1 ? ' registro pasó' : ' registros pasaron') + ' a Deuda anterior: ya no cuentan como gasto');
+    render();
+  });
+
+  $('btn-convert-no').addEventListener('click', function(){
+    var ids = dismissed().concat(debtLookalikes().map(function(e){ return e.id; }));
+    try { localStorage.setItem(DISMISS_KEY, JSON.stringify(ids)); } catch (e) {}
+    render();
+  });
 
   // Puente para sync.js
   window.GastosApp = {

@@ -200,6 +200,28 @@ dialog h2 { margin: 0 0 14px; font-size: 1.15rem; }
 .total-sub { white-space: pre-line; }
 .icon-btn:disabled { opacity: 0.35; }
 
+/* Dos apartados: Gastos y Deudas */
+.mode-switch {
+  display: flex; gap: 4px; background: rgba(0,0,0,0.18); border-radius: 14px;
+  padding: 4px; margin: 14px 0 4px;
+}
+.mode {
+  flex: 1; border: 0; background: transparent; color: rgba(255,255,255,0.8);
+  padding: 10px; border-radius: 11px; font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer;
+}
+.mode.active { background: #fff; color: #0f766e; }
+body.mode-deudas .top { background: linear-gradient(140deg, #3730a3, #7c3aed); }
+body.mode-deudas .mode.active { color: #3730a3; }
+body.mode-deudas .fab { background: #4f46e5; box-shadow: 0 6px 18px rgba(79,70,229,0.45); }
+#deudas-head { margin-top: 14px; }
+.convert-banner {
+  background: #fef3c7; color: #78350f; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 0.9rem;
+}
+.convert-banner p { margin: 0 0 10px; }
+.convert-banner .btn.ghost { color: #78350f; border-color: #d6a756; }
+.convert-banner .row { flex-wrap: wrap; }
+.convert-banner .btn { flex: 1 1 auto; }
+
 /* Pagos de tarjeta */
 .section-hint { margin: 0 4px 10px; }
 .cc-month { font-size: 0.78rem; opacity: 0.9; }
