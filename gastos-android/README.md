@@ -16,7 +16,11 @@ con una notificación "Pago detectado").
    dirección de tu proyecto de Cloudflare Pages (ej.
    `https://mis-gastos.pages.dev`) y tu clave. Ver `../gastos/README.md`.
 
-Qué se considera un pago: el texto trae un monto (S/, US$, $) y una palabra
+Los avisos de **pago de tu tarjeta** ("Pagaste tu tarjeta…", "pago de tu
+tarjeta", "abono a tu tarjeta") se anotan como pago de tarjeta: no suman al
+gasto y bajan lo que debes en esa tarjeta.
+
+Qué se considera un gasto: el texto trae un monto (S/, US$, $) y una palabra
 de gasto (consumo, compra, cargo, yapeaste, tarjeta...). Se ignoran el
 dinero que recibes, los códigos de verificación, las promociones y las apps
 de chat (WhatsApp, Telegram, Messenger, Instagram...).

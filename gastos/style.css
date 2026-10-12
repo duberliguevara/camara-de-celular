@@ -200,6 +200,13 @@ dialog h2 { margin: 0 0 14px; font-size: 1.15rem; }
 .total-sub { white-space: pre-line; }
 .icon-btn:disabled { opacity: 0.35; }
 
+/* Pagos de tarjeta */
+.kind-picker { display: flex; gap: 6px; margin-bottom: 14px; }
+.kind-picker .chip { flex: 1; }
+.item .amt.pay { color: #15803d; }
+.cc-debt { margin-top: 6px; font-size: 0.85rem; }
+.cc-debt b { font-size: 1rem; }
+
 /* Tarjetas */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .cc {

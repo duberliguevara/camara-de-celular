@@ -6,6 +6,10 @@ todos tus pagos desde el celular:
 - **Tarjetas** — consumos con tus tarjetas de crédito (vienen SIP, iO y BCP
   Platinum; puedes agregar o quitar). Total del mes por tarjeta y, si
   pones el día de cierre, cuánto llevas en el ciclo de facturación actual.
+- **Pagos de tarjeta** — cuando pagas una tarjeta (a mano con *+ → Pago de
+  tarjeta*, o detectado del aviso "Pagaste tu tarjeta…") **no cuenta como
+  gasto** y se resta de lo que debes. Cada tarjeta muestra **Por pagar** =
+  deuda inicial (Opciones) + consumos − pagos.
 - **Generales** — todo lo demás: efectivo, débito, Yape, Plin,
   transferencias.
 - **Resumen** — en qué se va tu dinero por tarjeta, por categoría y en los

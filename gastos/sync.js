@@ -8,7 +8,7 @@
   var CONF_KEY = 'mis-gastos-servidor';
   var G = window.GastosApp;
   var $ = function(id){ return document.getElementById(id); };
-  var EXPENSE_FIELDS = ['id', 'amount', 'currency', 'cat', 'desc', 'date', 'cardId', 'method', 'installments', 'raw', 'created', 'updated'];
+  var EXPENSE_FIELDS = ['id', 'kind', 'amount', 'currency', 'cat', 'desc', 'date', 'cardId', 'method', 'installments', 'raw', 'created', 'updated'];
   var SETTINGS_FIELDS = ['cards', 'categories', 'rate', 'budget'];
 
   var timer = null, running = false, again = false;

@@ -74,6 +74,10 @@
   <form id="expense-form" method="dialog">
     <h2 id="dialog-title">Nuevo pago</h2>
     <div id="parsed-note" class="parsed-note hidden"></div>
+    <div class="kind-picker" id="kind-picker">
+      <button type="button" class="chip" data-kind="">🧾 Gasto</button>
+      <button type="button" class="chip" data-kind="cardPayment">💸 Pago de tarjeta</button>
+    </div>
     <div class="row">
       <div class="field grow2">
         <label for="f-amount">Monto</label>
@@ -88,10 +92,10 @@
       </div>
     </div>
     <div class="field">
-      <label>¿Con qué pagaste?</label>
+      <label id="pay-label">¿Con qué pagaste?</label>
       <div id="pay-picker" class="chips"></div>
     </div>
-    <div class="field">
+    <div class="field" id="cat-field">
       <label>Categoría</label>
       <div id="cat-picker" class="chips"></div>
     </div>
@@ -105,7 +109,7 @@
         <label for="f-date">Fecha</label>
         <input id="f-date" type="date" required>
       </div>
-      <div class="field">
+      <div class="field" id="installments-field">
         <label for="f-installments">Cuotas</label>
         <input id="f-installments" type="number" min="1" max="60" value="1">
       </div>

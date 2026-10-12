@@ -34,12 +34,20 @@ public class NotificationReader extends NotificationListenerService {
             "consumo|compra|cargo|pagaste|pago|yapeaste|plineaste|transferiste|transferencia|retiro"
                     + "|tarjeta|d[eé]bito|cr[eé]dito|operaci[oó]n", FLAGS);
 
-    /** Dinero que entra o mensajes de seguridad: no son gastos. */
+    /** Dinero que entra: no es un gasto (salvo que sea el pago de una tarjeta). */
     static final Pattern NOT_SPEND = Pattern.compile(
             "te yape[oó]|recibiste|te transfiri[oó]|te envi[oó]|abono|abonamos|dep[oó]sito|reembolso"
-                    + "|devoluci[oó]n|extorno|c[oó]digo de (verificaci|seguridad|validaci|acceso)|clave din[aá]mica|\\botp\\b"
-                    + "|token digital|promoci[oó]n|oferta"
-                    + "|descuento|sorteo|gana ", FLAGS);
+                    + "|devoluci[oó]n|extorno", FLAGS);
+
+    /** Códigos de seguridad y publicidad: nunca se anotan. */
+    static final Pattern NEVER = Pattern.compile(
+            "c[oó]digo de (verificaci|seguridad|validaci|acceso)|clave din[aá]mica|\\botp\\b|token digital"
+                    + "|promoci[oó]n|oferta|descuento|sorteo|gana ", FLAGS);
+
+    /** Pago DE la tarjeta (baja la deuda). Igual que CARD_PAYMENT_RE en gastos/parser.js. */
+    static final Pattern CARD_PAYMENT = Pattern.compile(
+            "pag(o|aste)\\s+(total\\s+|m[ií]nimo\\s+)?(de\\s+|a\\s+)?(tu|su|la)\\s+(tarjeta|estado de cuenta)"
+                    + "|pago\\s+(de|a)\\s+tarjeta|abono\\s+(a|en)\\s+(tu|su)\\s+tarjeta", FLAGS);
 
     /** Apps de chat: un mensaje de un amigo con un monto no es un pago tuyo. */
     private static final Set<String> IGNORED = new HashSet<>(Arrays.asList(
@@ -78,11 +86,10 @@ public class NotificationReader extends NotificationListenerService {
     }
 
     static boolean looksLikePayment(String text) {
-        return text.length() > 0
-                && text.length() < 4000
-                && AMOUNT.matcher(text).find()
-                && SPEND.matcher(text).find()
-                && !NOT_SPEND.matcher(text).find();
+        if (text.length() == 0 || text.length() >= 4000) return false;
+        if (!AMOUNT.matcher(text).find() || NEVER.matcher(text).find()) return false;
+        if (CARD_PAYMENT.matcher(text).find()) return true;
+        return SPEND.matcher(text).find() && !NOT_SPEND.matcher(text).find();
     }
 
     private static void showDetected(Context c, String text) {
@@ -100,7 +107,7 @@ public class NotificationReader extends NotificationListenerService {
                 ? new Notification.Builder(c, CHANNEL_ID)
                 : new Notification.Builder(c);
         b.setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Pago detectado")
+                .setContentTitle(CARD_PAYMENT.matcher(text).find() ? "Pago de tarjeta detectado" : "Pago detectado")
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text + "\n\nToca para anotarlo en Mis Gastos."))
                 .setContentIntent(pi)

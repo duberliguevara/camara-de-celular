@@ -113,7 +113,8 @@
   var currentTab = 'cards';
   var editingId = null;
   var selectedCat = null;
-  var selectedPay = null; // 'card:<id>' | 'gen:<método>'
+  var selectedPay = null;
+  var selectedKind = null; // null = gasto, 'cardPayment' = pago de tarjeta // 'card:<id>' | 'gen:<método>'
   var pendingRaw = null;  // texto de notificación del pago que se está creando
 
   (function(){ var n = new Date(); viewYear = n.getFullYear(); viewMonth = n.getMonth(); })();
@@ -172,6 +173,23 @@
     return d.getFullYear() === y && d.getMonth() === m;
   }
 
+  // Un "pago de tarjeta" no es un gasto: baja la deuda de esa tarjeta.
+  function isPay(e){ return e.kind === 'cardPayment'; }
+  function notPay(e){ return !isPay(e); }
+
+  // Lo que se debe en cada tarjeta: deuda inicial + consumos - pagos (por moneda).
+  function cardDebt(card){
+    var d = { PEN: parseFloat(card.startDebt) || 0, USD: 0 };
+    state.expenses.forEach(function(e){
+      if (e.cardId !== card.id) return;
+      var cur = e.currency === 'USD' ? 'USD' : 'PEN';
+      d[cur] += isPay(e) ? -e.amount : e.amount;
+    });
+    d.PEN = Math.round(d.PEN * 100) / 100;
+    d.USD = Math.round(d.USD * 100) / 100;
+    return d;
+  }
+
   function sums(list){
     var r = { PEN: 0, USD: 0, total: 0 };
     list.forEach(function(e){ r[e.currency === 'USD' ? 'USD' : 'PEN'] += e.amount; r.total += toPEN(e); });
@@ -190,7 +208,7 @@
     var key = desc.trim().toLowerCase();
     for (var i = state.expenses.length - 1; i >= 0; i--) {
       var e = state.expenses[i];
-      if (e.desc && e.desc.trim().toLowerCase() === key) return e.cat;
+      if (notPay(e) && e.desc && e.desc.trim().toLowerCase() === key) return e.cat;
     }
     for (var j = 0; j < AUTO_CATEGORY.length; j++) {
       if (AUTO_CATEGORY[j][0].test(desc) && state.categories.some(function(c){ return c.name === AUTO_CATEGORY[j][1]; })) {
@@ -239,9 +257,10 @@
   // ---------- Render ----------
 
   function render(){
-    var monthItems = state.expenses.filter(function(e){ return inMonth(e, viewYear, viewMonth); });
+    var monthAll = state.expenses.filter(function(e){ return inMonth(e, viewYear, viewMonth); });
+    var monthItems = monthAll.filter(notPay);
     renderHeader(monthItems);
-    if (currentTab === 'cards') renderCards(monthItems);
+    if (currentTab === 'cards') renderCards(monthItems, monthAll);
     else if (currentTab === 'general') renderGeneral(monthItems);
     else renderStats(monthItems);
   }
@@ -273,6 +292,13 @@
   }
 
   function itemHTML(e){
+    if (isPay(e)) {
+      return '<button class="item" data-id="' + e.id + '">' +
+        '<span class="emoji">💸</span>' +
+        '<span class="info"><div class="desc">Pago de tarjeta</div>' +
+        '<div class="meta">💳 ' + esc(payLabel(e)) + (e.desc ? ' · ' + esc(e.desc) : '') + '</div></span>' +
+        '<span class="amt pay">− ' + fmt(e.amount, e.currency) + '</span></button>';
+    }
     var meta = [];
     meta.push(e.cardId ? '💳 ' + esc(payLabel(e)) : (METHOD_ICONS[e.method] || '💰') + ' ' + esc(payLabel(e)));
     meta.push(esc(e.cat));
@@ -295,12 +321,13 @@
       label = label.charAt(0).toUpperCase() + label.slice(1);
       if (date === todayISO()) label = 'Hoy';
       return '<div class="day-group"><div class="day-head"><span>' + esc(label) + '</span><span>' +
-        sumText(sums(list)) + '</span></div><div class="day-card">' + list.map(itemHTML).join('') + '</div></div>';
+        sumText(sums(list.filter(notPay))) + '</span></div><div class="day-card">' + list.map(itemHTML).join('') + '</div></div>';
     }).join('');
   }
 
-  function renderCards(items){
+  function renderCards(items, allItems){
     var cardItems = items.filter(function(e){ return e.cardId; });
+    var cardAll = allItems.filter(function(e){ return e.cardId; });
 
     $('card-summary').innerHTML = state.cards.map(function(card){
       var mine = cardItems.filter(function(e){ return e.cardId === card.id; });
@@ -308,7 +335,7 @@
       var cyc = currentCycle(card), cycHTML = '';
       if (cyc) {
         var cs = sums(state.expenses.filter(function(e){
-          if (e.cardId !== card.id) return false;
+          if (e.cardId !== card.id || isPay(e)) return false;
           var d = parseISO(e.date);
           return d >= cyc.start && d <= cyc.end;
         }));
@@ -316,6 +343,14 @@
         cycHTML = '<div class="cc-cycle">Ciclo actual (cierra ' + cyc.end.toLocaleDateString('es-PE', opts) + '): <b>' +
           sumText(cs) + '</b></div>';
       }
+      var debt = cardDebt(card), debtHTML;
+      if (debt.PEN <= 0 && debt.USD <= 0) {
+        var favor = { PEN: -debt.PEN, USD: -debt.USD, total: 0 };
+        debtHTML = (favor.PEN || favor.USD) ? 'Saldo a favor: <b>' + sumText(favor) + '</b>' : 'Por pagar: <b>nada ✅</b>';
+      } else {
+        debtHTML = 'Por pagar: <b>' + sumText({ PEN: Math.max(debt.PEN, 0), USD: Math.max(debt.USD, 0), total: 0 }) + '</b>';
+      }
+      cycHTML += '<div class="cc-debt">' + debtHTML + '</div>';
       return '<button class="cc" data-card="' + card.id + '" style="--cc:' + esc(card.color || CARD_COLORS[0]) + '">' +
         '<div class="cc-name">💳 ' + esc(card.name) + (card.last4 ? ' <span class="cc-last4">•••• ' + esc(card.last4) + '</span>' : '') + '</div>' +
         '<div class="cc-amt">' + sumText(s) + '</div>' +
@@ -329,7 +364,7 @@
     }).join('');
     sel.value = cardById(cur) ? cur : '';
 
-    var shown = sel.value ? cardItems.filter(function(e){ return e.cardId === sel.value; }) : cardItems;
+    var shown = sel.value ? cardAll.filter(function(e){ return e.cardId === sel.value; }) : cardAll;
     $('card-list').innerHTML = listHTML(shown);
     $('card-empty').classList.toggle('hidden', shown.length > 0);
   }
@@ -375,7 +410,7 @@
     for (var i = 5; i >= 0; i--) {
       var d = new Date(viewYear, viewMonth - i, 1);
       var y = d.getFullYear(), m = d.getMonth();
-      cols.push({ y: y, m: m, total: sums(state.expenses.filter(function(e){ return inMonth(e, y, m); })).total });
+      cols.push({ y: y, m: m, total: sums(state.expenses.filter(function(e){ return notPay(e) && inMonth(e, y, m); })).total });
     }
     var max = Math.max.apply(null, cols.map(function(c){ return c.total; })) || 1;
     $('month-history').innerHTML = cols.map(function(c, idx){
@@ -388,12 +423,27 @@
 
   // ---------- Diálogo de pago ----------
 
+  function renderKind(){
+    var paying = selectedKind === 'cardPayment';
+    document.querySelectorAll('#kind-picker [data-kind]').forEach(function(b){
+      b.classList.toggle('selected', b.dataset.kind === (selectedKind || ''));
+    });
+    $('cat-field').classList.toggle('hidden', paying);
+    $('installments-field').classList.toggle('hidden', paying);
+    $('pay-label').textContent = paying ? '¿Qué tarjeta pagaste?' : '¿Con qué pagaste?';
+    $('f-desc').placeholder = paying ? 'Opcional: desde qué cuenta, nota…' : 'Ej: Wong, Netflix, almuerzo…';
+    $('dialog-title').textContent = (editingId ? 'Editar ' : 'Nuevo ') + (paying ? 'pago de tarjeta' : 'pago');
+    if (paying && (!selectedPay || selectedPay.indexOf('card:') !== 0) && state.cards[0]) selectedPay = 'card:' + state.cards[0].id;
+    renderPayPicker();
+  }
+
   function renderPayPicker(){
+    var paying = selectedKind === 'cardPayment';
     var html = state.cards.map(function(c){
       var v = 'card:' + c.id;
       return '<button type="button" class="chip' + (selectedPay === v ? ' selected' : '') + '" data-pay="' + v + '">💳 ' + esc(c.name) + '</button>';
     }).join('');
-    html += GENERAL_METHODS.map(function(m){
+    if (!paying) html += GENERAL_METHODS.map(function(m){
       var v = 'gen:' + m;
       return '<button type="button" class="chip' + (selectedPay === v ? ' selected' : '') + '" data-pay="' + esc(v) + '">' + METHOD_ICONS[m] + ' ' + esc(m) + '</button>';
     }).join('');
@@ -411,6 +461,7 @@
     var seen = {};
     $('desc-suggestions').innerHTML = state.expenses.slice().reverse()
       .filter(function(e){
+        if (isPay(e)) return false;
         var k = (e.desc || '').toLowerCase();
         if (!k || seen[k]) return false;
         seen[k] = 1; return true;
@@ -419,14 +470,14 @@
       .map(function(e){ return '<option value="' + esc(e.desc) + '">'; }).join('');
   }
 
-  // prefill: { amount, currency, desc, date, cardId, method, cat, raw, note }
+  // prefill: { amount, currency, desc, date, cardId, method, cat, kind, raw, note }
   function openExpense(id, prefill){
     editingId = id || null;
     var e = id ? state.expenses.find(function(x){ return x.id === id; }) : null;
     var p = prefill || {};
     pendingRaw = e ? null : (p.raw || null);
 
-    $('dialog-title').textContent = e ? 'Editar pago' : 'Nuevo pago';
+    selectedKind = e ? (e.kind || null) : (p.kind || null);
     $('f-amount').value = e ? e.amount : (p.amount || '');
     $('f-currency').value = e ? (e.currency || 'PEN') : (p.currency || 'PEN');
     $('f-desc').value = e ? (e.desc || '') : (p.desc || '');
@@ -450,7 +501,7 @@
     note.classList.toggle('hidden', !p.note);
 
     $('btn-delete').classList.toggle('hidden', !e);
-    renderPayPicker();
+    renderKind();
     renderCatPicker();
     renderSuggestions();
     $('expense-dialog').showModal();
@@ -489,15 +540,18 @@
     var amount = parseAmount($('f-amount').value);
     if (!amount) { toast('Escribe un monto válido'); $('f-amount').focus(); return; }
     var pay = readPay();
+    var paying = selectedKind === 'cardPayment';
+    if (paying && !pay.cardId) { toast('Elige qué tarjeta pagaste'); return; }
     var data = {
+      kind: paying ? 'cardPayment' : null,
       amount: amount,
       currency: $('f-currency').value,
-      cat: selectedCat || 'Otros',
+      cat: paying ? 'Pago de tarjeta' : (selectedCat || 'Otros'),
       desc: $('f-desc').value.trim(),
       date: $('f-date').value || todayISO(),
       cardId: pay.cardId,
       method: pay.method,
-      installments: Math.max(1, parseInt($('f-installments').value, 10) || 1)
+      installments: paying ? 1 : Math.max(1, parseInt($('f-installments').value, 10) || 1)
     };
     if (editingId) {
       var e = state.expenses.find(function(x){ return x.id === editingId; });
@@ -526,6 +580,13 @@
     render();
   });
 
+  $('kind-picker').addEventListener('click', function(ev){
+    var b = ev.target.closest('[data-kind]');
+    if (!b) return;
+    selectedKind = b.dataset.kind || null;
+    renderKind();
+  });
+
   $('pay-picker').addEventListener('click', function(ev){
     var b = ev.target.closest('[data-pay]');
     if (!b) return;
@@ -552,14 +613,16 @@
     var r = GastosParser.parseNotification(text, state.cards);
     var found = [];
     if (r.amount) found.push(fmt(r.amount, r.currency));
+    if (r.isCardPayment) found.push('pago de tarjeta');
     if (r.cardId) found.push('💳 ' + cardById(r.cardId).name);
-    if (r.merchant) found.push(r.merchant);
+    if (r.merchant && !r.isCardPayment) found.push(r.merchant);
     return {
       result: r,
       prefill: {
+        kind: r.isCardPayment ? 'cardPayment' : null,
         amount: r.amount,
         currency: r.currency,
-        desc: r.merchant,
+        desc: r.isCardPayment ? '' : r.merchant,
         date: r.date ? isoDate(r.date) : todayISO(),
         cardId: r.cardId,
         method: r.cardId ? null : guessGeneralMethod(text),
@@ -601,20 +664,30 @@
       };
     }
 
-    if (params.get('auto') === '1' && pf.amount) {
+    if (params.get('auto') === '1' && pf.amount && !needsReview(pf)) {
       var e = autoSave(pf);
       if (!e) { toast('Ese pago ya estaba anotado'); return; }
       goToMonthOf(e.date);
       setTab(e.cardId ? 'cards' : 'general');
-      toast('Anotado automáticamente: ' + fmt(e.amount, e.currency) + (e.desc ? ' en ' + e.desc : ''));
+      toast(isPay(e) ? 'Pago de tarjeta anotado: ' + fmt(e.amount, e.currency) + ' a ' + payLabel(e)
+        : 'Anotado automáticamente: ' + fmt(e.amount, e.currency) + (e.desc ? ' en ' + e.desc : ''));
       return;
     }
     openExpense(null, pf);
   }
 
+  // Un pago de tarjeta sin tarjeta reconocida no se puede restar de ninguna: se pregunta.
+  function needsReview(pf){ return pf.kind === 'cardPayment' && !pf.cardId; }
+
   // Guarda sin preguntar; devuelve null si esa misma notificación ya se anotó hace poco.
   function autoSave(pf){
     if (isDuplicate(pf.raw)) return null;
+    if (pf.kind === 'cardPayment') {
+      return addExpense({
+        kind: 'cardPayment', amount: pf.amount, currency: pf.currency, cat: 'Pago de tarjeta', desc: '',
+        date: pf.date, cardId: pf.cardId, method: null, installments: 1, raw: pf.raw
+      });
+    }
     return addExpense({
       amount: pf.amount, currency: pf.currency, cat: pf.cat || 'Otros', desc: pf.desc || '',
       date: pf.date, cardId: pf.cardId || null, method: pf.cardId ? null : (pf.method || 'Otro'),
@@ -630,13 +703,15 @@
     if (!Native) return;
     var list;
     try { list = JSON.parse(Native.takePending() || '[]'); } catch (e) { return; }
-    var saved = [];
+    var saved = [], review = null;
     list.forEach(function(text){
       var pf = prefillFromText(text).prefill;
       if (!pf.amount) return;
+      if (needsReview(pf)) { if (!review && !isDuplicate(pf.raw)) review = pf; return; }
       var e = autoSave(pf);
       if (e) saved.push(e);
     });
+    if (review) openExpense(null, review);
     if (!saved.length) return;
     var last = saved[saved.length - 1];
     goToMonthOf(last.date);
@@ -692,6 +767,7 @@
         '<div class="row tight"><input data-k="last4" value="' + esc(c.last4 || '') + '" placeholder="Últimos 4" inputmode="numeric" maxlength="4">' +
         '<input data-k="closingDay" value="' + esc(c.closingDay || '') + '" placeholder="Día cierre" inputmode="numeric" maxlength="2"></div>' +
         '<input data-k="keywords" value="' + esc(c.keywords || '') + '" placeholder="Palabras clave (ej: bcp, platinum)">' +
+        '<input data-k="startDebt" value="' + esc(c.startDebt || '') + '" placeholder="Deuda actual al empezar, en S/ (opcional)" inputmode="decimal">' +
         '</div>';
     }).join('');
   }
@@ -704,6 +780,8 @@
       card.last4 = card.last4.replace(/\D/g, '').slice(0, 4);
       var cd = parseInt(card.closingDay, 10);
       card.closingDay = cd >= 1 && cd <= 31 ? String(cd) : '';
+      var sd = parseAmount(card.startDebt);
+      card.startDebt = sd ? String(sd) : '';
       if (!card.name) card.name = 'Tarjeta';
     });
   }
@@ -790,7 +868,7 @@
   $('btn-export-csv').addEventListener('click', function(){
     var rows = [['Fecha', 'Tipo', 'Tarjeta / medio', 'Categoría', 'Descripción', 'Moneda', 'Monto', 'Cuotas']];
     state.expenses.slice().sort(function(a, b){ return a.date.localeCompare(b.date); }).forEach(function(e){
-      rows.push([e.date, e.cardId ? 'Tarjeta de crédito' : 'General', payLabel(e), e.cat, e.desc || '',
+      rows.push([e.date, isPay(e) ? 'Pago de tarjeta' : e.cardId ? 'Tarjeta de crédito' : 'General', payLabel(e), e.cat, e.desc || '',
         e.currency || 'PEN', e.amount.toFixed(2), e.installments || 1]);
     });
     var csv = rows.map(function(r){

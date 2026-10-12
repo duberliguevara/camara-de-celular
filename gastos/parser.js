@@ -102,6 +102,12 @@
     return /cr[eé]dito|tarjeta|visa|mastercard|amex|consumo|compra/i.test(text);
   }
 
+  // Pago DE la tarjeta (no una compra con ella): "Pagaste tu tarjeta", "Pago recibido", "abono a tu tarjeta".
+  // Solo frases que nombran la tarjeta: "Recibimos tu pago" a secas también llega en recibos de Netflix, Claro...
+  var CARD_PAYMENT_RE = /pag(o|aste)\s+(total\s+|m[ií]nimo\s+)?(de\s+|a\s+)?(tu|su|la)\s+(tarjeta|estado de cuenta)|pago\s+(de|a)\s+tarjeta|abono\s+(a|en)\s+(tu|su)\s+tarjeta/i;
+
+  function isCardPayment(text){ return CARD_PAYMENT_RE.test(text); }
+
   function parseNotification(text, cards, now){
     now = now || new Date();
     text = String(text || '').replace(/\s+/g, ' ').trim();
@@ -113,11 +119,12 @@
       date: findDate(text, now),
       cardId: findCard(text, cards),
       isCredit: looksLikeCredit(text),
+      isCardPayment: isCardPayment(text),
       raw: text
     };
   }
 
-  var api = { parseNotification: parseNotification, parseNumber: parseNumber };
+  var api = { parseNotification: parseNotification, parseNumber: parseNumber, isCardPayment: isCardPayment };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GastosParser = api;
 })(this);
