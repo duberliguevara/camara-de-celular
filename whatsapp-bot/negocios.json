@@ -1,0 +1,140 @@
+{
+  "_LEEME": "Edita este archivo con los datos reales. Todo lo que diga EDITAR debe reemplazarse. Los productos y precios son de EJEMPLO. Cuando termines, pon datosDeEjemplo en false.",
+  "datosDeEjemplo": true,
+
+  "zonaHoraria": "America/Lima",
+  "notificarPedidosA": ["51EDITAR"],
+  "pausaAtencionHumanaHoras": 2,
+  "reiniciarConversacionTrasMinutos": 120,
+  "nombreRemitente": "Pucacha & Adita",
+
+  "negocios": [
+    {
+      "id": "pucacha",
+      "nombre": "Pucacha Finest Market",
+      "emoji": "🛒",
+      "descripcion": "Tu market de confianza en Tarapoto: abarrotes, bebidas, snacks, limpieza y más, directo a tu puerta.",
+      "direccion": "EDITAR: dirección de la tienda, Tarapoto",
+      "linkMapa": "EDITAR: link de Google Maps",
+      "horario": {
+        "lun": ["08:00", "22:00"],
+        "mar": ["08:00", "22:00"],
+        "mie": ["08:00", "22:00"],
+        "jue": ["08:00", "22:00"],
+        "vie": ["08:00", "22:00"],
+        "sab": ["08:00", "22:00"],
+        "dom": ["09:00", "20:00"]
+      },
+      "delivery": {
+        "pedidoMinimo": 15,
+        "tiempoEstimado": "30 a 45 minutos",
+        "zonas": [
+          { "nombre": "Tarapoto (centro)", "costo": 3 },
+          { "nombre": "Morales", "costo": 5 },
+          { "nombre": "La Banda de Shilcayo", "costo": 5 },
+          { "nombre": "Otra zona (te confirmamos el costo)", "costo": null }
+        ]
+      },
+      "pagos": {
+        "efectivo": true,
+        "yape": "EDITAR: 9XX XXX XXX a nombre de ...",
+        "plin": "EDITAR: 9XX XXX XXX a nombre de ...",
+        "tarjeta": "Con POS al momento de la entrega"
+      },
+      "catalogo": [
+        {
+          "categoria": "Bebidas",
+          "productos": [
+            { "nombre": "Agua San Luis 625 ml", "precio": 1.5 },
+            { "nombre": "Coca-Cola 1.5 L", "precio": 7.5 },
+            { "nombre": "Inca Kola 1.5 L", "precio": 7.5 },
+            { "nombre": "Cerveza Pilsen lata 355 ml", "precio": 4.5 }
+          ]
+        },
+        {
+          "categoria": "Abarrotes",
+          "productos": [
+            { "nombre": "Arroz Costeño 1 kg", "precio": 5.2 },
+            { "nombre": "Azúcar rubia 1 kg", "precio": 4.0 },
+            { "nombre": "Aceite Primor 1 L", "precio": 11.9 },
+            { "nombre": "Leche Gloria tarro 395 g", "precio": 4.3 }
+          ]
+        },
+        {
+          "categoria": "Snacks y golosinas",
+          "productos": [
+            { "nombre": "Papas Lay's clásicas 42 g", "precio": 2.5 },
+            { "nombre": "Galletas Oreo 6 un.", "precio": 3.5 },
+            { "nombre": "Chifles de plátano 100 g", "precio": 3.0 }
+          ]
+        },
+        {
+          "categoria": "Limpieza y cuidado",
+          "productos": [
+            { "nombre": "Papel higiénico Elite x4", "precio": 6.5 },
+            { "nombre": "Detergente Bolívar 520 g", "precio": 7.9 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "adita",
+      "nombre": "Adita Corazón Heladería",
+      "emoji": "🍦",
+      "descripcion": "Helados artesanales con frutas de nuestra Amazonía, hechos con mucho corazón.",
+      "direccion": "EDITAR: dirección de la heladería, Tarapoto",
+      "linkMapa": "EDITAR: link de Google Maps",
+      "horario": {
+        "lun": ["10:00", "22:00"],
+        "mar": ["10:00", "22:00"],
+        "mie": ["10:00", "22:00"],
+        "jue": ["10:00", "22:00"],
+        "vie": ["10:00", "23:00"],
+        "sab": ["10:00", "23:00"],
+        "dom": ["10:00", "22:00"]
+      },
+      "delivery": {
+        "pedidoMinimo": 10,
+        "tiempoEstimado": "20 a 40 minutos",
+        "zonas": [
+          { "nombre": "Tarapoto (centro)", "costo": 3 },
+          { "nombre": "Morales", "costo": 5 },
+          { "nombre": "La Banda de Shilcayo", "costo": 5 },
+          { "nombre": "Otra zona (te confirmamos el costo)", "costo": null }
+        ]
+      },
+      "pagos": {
+        "efectivo": true,
+        "yape": "EDITAR: 9XX XXX XXX a nombre de ...",
+        "plin": "EDITAR: 9XX XXX XXX a nombre de ...",
+        "tarjeta": null
+      },
+      "catalogo": [
+        {
+          "categoria": "Helados en copa / vaso",
+          "productos": [
+            { "nombre": "Copa 1 sabor", "precio": 5 },
+            { "nombre": "Copa 2 sabores", "precio": 8 },
+            { "nombre": "Copa 3 sabores", "precio": 11 }
+          ]
+        },
+        {
+          "categoria": "Para llevar",
+          "productos": [
+            { "nombre": "Medio litro (hasta 2 sabores)", "precio": 15 },
+            { "nombre": "Un litro (hasta 3 sabores)", "precio": 28 }
+          ]
+        },
+        {
+          "categoria": "Otros",
+          "productos": [
+            { "nombre": "Cremolada de fruta", "precio": 6 },
+            { "nombre": "Milkshake", "precio": 10 },
+            { "nombre": "Paleta de fruta", "precio": 3 }
+          ]
+        }
+      ],
+      "sabores": ["Aguaje", "Camu camu", "Cocona", "Copoazú", "Maracuyá", "Lúcuma", "Chocolate", "Vainilla", "Fresa"]
+    }
+  ]
+}
