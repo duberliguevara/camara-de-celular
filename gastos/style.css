@@ -201,7 +201,11 @@ dialog h2 { margin: 0 0 14px; font-size: 1.15rem; }
 .icon-btn:disabled { opacity: 0.35; }
 
 /* Pagos de tarjeta */
-.kind-picker { display: flex; gap: 6px; margin-bottom: 14px; }
+.section-hint { margin: 0 4px 10px; }
+.cc-month { font-size: 0.78rem; opacity: 0.9; }
+.dup-badge { font-size: 0.7rem; color: var(--muted); }
+.kind-picker { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+#kind-hint { margin: 0 0 12px; }
 .kind-picker .chip { flex: 1; }
 .item .amt.pay { color: #15803d; }
 .cc-debt { margin-top: 6px; font-size: 0.85rem; }

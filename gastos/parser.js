@@ -43,6 +43,8 @@
     var patterns = [
       /comercio\s*:?\s*([^\n.;|]{2,50})/i,
       /establecimiento\s*:?\s*([^\n.;|]{2,50})/i,
+      // pago de servicios: "Pagaste tu recibo de Luz del Sur", "Pago de servicio Movistar"
+      /(?:recibo|servicio|recarga)\s+(?:de\s+|a\s+)?(?:tu\s+|su\s+)?([A-Z0-9][^\n;|.]{1,40})/i,
       /\ben\s+(?!(?:tu|su|la|el|l[ao]s)\s+tarjeta)([A-Z0-9][^\n;|]{1,50})/,
       /\ben\s+([^\n;|]{2,50})/i,
       /(?:S\/\.?|US\$|\$)\s*[0-9][0-9.,]*\s+a\s+([^\n;|]{2,50})/i
@@ -53,6 +55,7 @@
       var s = m[1]
         .split(/\s+(?:el\s+d[ií]a|el\s+\d|con\s+tu|con\s+su|con\s+la|por\s+(?:S\/|US\$|\$)|a\s+las|fecha|hora|monto|tarjeta|operaci[oó]n|si\s+no)\b/i)[0]
         .split(/\s+\d{1,2}[\/-]\d{1,2}([\/-]\d{2,4})?/)[0]
+        .split(/\s+(?:por\s+)?(?:S\/\.?|US\$|\$|PEN\b|USD\b)\s*\d/i)[0]
         .replace(/[.,:\s]+$/, '')
         .replace(/\s+(el|del|de|a|en|con|por)$/i, '')
         .trim();
@@ -80,8 +83,17 @@
 
   // Devuelve el id de la tarjeta cuya palabra clave / últimos 4 dígitos
   // aparece en el texto. Gana la que más coincidencias tiene.
+  // Nombres de bancos: por sí solos no dicen que se usó la TARJETA DE CRÉDITO
+  // (un aviso del BCP puede ser de tu cuenta de ahorros o de débito).
+  var BANK_NAMES = ['bcp', 'interbank', 'bbva', 'scotiabank', 'scotia', 'banbif', 'pichincha', 'falabella', 'ripley', 'mibanco', 'nacion'];
+  var CREDIT_CONTEXT_RE = /cr[eé]dito|tarjeta|visa|mastercard|amex|american express|diners|\*{2,}\s?\d{4}/i;
+  var DEBIT_CONTEXT_RE = /d[eé]bito|desde tu cuenta|de tu cuenta|cuenta de ahorros?|cuenta corriente|cuenta sueldo/i;
+
+  // Devuelve el id de la tarjeta de crédito usada, o null si no es (o no se sabe).
+  // Los últimos 4 dígitos mandan; si no, cuentan las palabras clave de la tarjeta.
   function findCard(text, cards){
     var t = normalize(text);
+    var credit = CREDIT_CONTEXT_RE.test(text) && !(DEBIT_CONTEXT_RE.test(text) && !/cr[eé]dito/i.test(text));
     var best = null, bestScore = 0;
     (cards || []).forEach(function(card){
       var score = 0;
@@ -90,11 +102,14 @@
       words.forEach(function(w){
         w = normalize(w).trim();
         if (!w) return;
+        if (BANK_NAMES.indexOf(w) >= 0 && !credit) return;
         var re = new RegExp('(^|[^a-z0-9])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z0-9])');
         if (re.test(t)) score += w.length >= 3 ? 2 : 1;
       });
       if (score > bestScore) { bestScore = score; best = card.id; }
     });
+    // un aviso de débito o de cuenta no es de la tarjeta de crédito (salvo que traiga sus 4 dígitos)
+    if (best && !credit && bestScore < 5 && DEBIT_CONTEXT_RE.test(text)) return null;
     return best;
   }
 

@@ -37,24 +37,28 @@
 
 <main>
   <nav class="tabs">
-    <button class="tab active" data-tab="cards">Tarjetas</button>
-    <button class="tab" data-tab="general">Generales</button>
+    <button class="tab active" data-tab="expenses">Gastos</button>
+    <button class="tab" data-tab="debts">Deudas</button>
     <button class="tab" data-tab="stats">Resumen</button>
   </nav>
 
-  <section id="tab-cards">
+  <section id="tab-expenses">
+    <input id="search" type="search" placeholder="Buscar por comercio, categoría o medio…">
+    <div class="filter-row">
+      <select id="exp-filter" aria-label="Filtrar por medio de pago"></select>
+    </div>
+    <div id="expense-list"></div>
+    <p id="expense-empty" class="empty hidden">Sin gastos este mes.<br>Toca <strong>+</strong> para anotar uno.</p>
+  </section>
+
+  <section id="tab-debts" class="hidden">
+    <p class="hint section-hint">Lo que debes en cada tarjeta: deuda anterior + consumos − pagos. Ni la deuda anterior ni los pagos de tarjeta cuentan como gasto del mes.</p>
     <div id="card-summary" class="card-grid"></div>
     <div class="filter-row">
       <select id="card-filter" aria-label="Filtrar por tarjeta"></select>
     </div>
     <div id="card-list"></div>
-    <p id="card-empty" class="empty hidden">Sin consumos con tarjeta este mes.</p>
-  </section>
-
-  <section id="tab-general" class="hidden">
-    <input id="search" type="search" placeholder="Buscar por descripción o categoría…">
-    <div id="general-list"></div>
-    <p id="general-empty" class="empty hidden">Sin gastos generales este mes.<br>Toca <strong>+</strong> para anotar uno.</p>
+    <p id="card-empty" class="empty hidden">Sin consumos ni pagos de tarjeta este mes.</p>
   </section>
 
   <section id="tab-stats" class="hidden">
@@ -77,7 +81,9 @@
     <div class="kind-picker" id="kind-picker">
       <button type="button" class="chip" data-kind="">🧾 Gasto</button>
       <button type="button" class="chip" data-kind="cardPayment">💸 Pago de tarjeta</button>
+      <button type="button" class="chip" data-kind="cardDebt">📌 Deuda anterior</button>
     </div>
+    <p id="kind-hint" class="hint"></p>
     <div class="row">
       <div class="field grow2">
         <label for="f-amount">Monto</label>

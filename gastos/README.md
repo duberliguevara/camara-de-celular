@@ -3,15 +3,14 @@
 App aparte (independiente de la app de clientes de streaming) para anotar
 todos tus pagos desde el celular:
 
-- **Tarjetas** — consumos con tus tarjetas de crédito (vienen SIP, iO y BCP
-  Platinum; puedes agregar o quitar). Total del mes por tarjeta y, si
-  pones el día de cierre, cuánto llevas en el ciclo de facturación actual.
-- **Pagos de tarjeta** — cuando pagas una tarjeta (a mano con *+ → Pago de
-  tarjeta*, o detectado del aviso "Pagaste tu tarjeta…") **no cuenta como
-  gasto** y se resta de lo que debes. Cada tarjeta muestra **Por pagar** =
-  deuda inicial (Opciones) + consumos − pagos.
-- **Generales** — todo lo demás: efectivo, débito, Yape, Plin,
-  transferencias.
+- **Gastos** — todo lo que pagas: con tarjeta de crédito, Yape, Plin,
+  débito, efectivo, servicios, celular... Es el "Gastado este mes".
+- **Deudas** — cuánto debes en cada tarjeta (SIP, iO, BCP Platinum,
+  editables): *deuda anterior* + consumos − *pagos de tarjeta*. Ni la deuda
+  anterior ni los pagos de tarjeta cuentan como gasto (las compras ya se
+  contaron). Se anotan con **+** eligiendo "📌 Deuda anterior" o
+  "💸 Pago de tarjeta"; los pagos también se detectan de avisos como
+  "Pagaste tu tarjeta…".
 - **Resumen** — en qué se va tu dinero por tarjeta, por categoría y en los
   últimos 6 meses.
 
@@ -54,6 +53,22 @@ cuenta. Es gratis.
 
 Haz el paso 7 en cada celular o navegador donde la uses. Los gastos que ya
 tenías en el celular se suben solos al conectar.
+
+## Sin duplicados
+
+Un mismo pago suele avisarse varias veces (app del banco + correo de Gmail +
+SMS, o Yape + el banco). La app lo anota **una sola vez**:
+
+1. El mismo texto repetido en 24 h se ignora.
+2. Mismo monto y moneda, avisado por **otra app** en menos de 30 minutos, sin
+   tarjetas distintas ni comercios distintos (WONG vs TAMBO): es el mismo
+   pago; el aviso extra solo completa datos que faltaban.
+3. Si la **misma app** avisa dos veces el mismo monto con textos distintos
+   (dos pasajes de S/ 3.50), son dos pagos y se anotan los dos.
+4. Al anotar a mano, si ya hay uno igual ese día, la app pregunta.
+
+Un aviso del banco que habla de tu **cuenta** o de **débito** nunca se
+asigna a la tarjeta de crédito, aunque diga "BCP".
 
 ## Anotar desde las notificaciones
 

@@ -27,7 +27,7 @@
     [/uber|cabify|didi|indriver|beat|grifo|primax|repsol|pecsa|petroperu|peaje|estaciona|taxi|bus|metropolitano/i, 'Transporte'],
     [/rappi|pedidos ?ya|kfc|mc ?donald|burger|bembos|pizza|starbucks|restaur|chifa|cevich|polleria|cafe|cafeter|dunkin|popeyes|norky/i, 'Comida'],
     [/inkafarma|mifarma|farmacia|botica|clinica|clínica|hospital|laboratorio|dental/i, 'Salud'],
-    [/luz del sur|enel|sedapal|calidda|movistar|claro|entel|bitel|win|internet|agua|gas natural/i, 'Servicios'],
+    [/luz del sur|enel|sedapal|calidda|movistar|claro|entel|bitel|win|internet|agua|gas natural|recibo|servicio|recarga|celular|postpago|telefon/i, 'Servicios'],
     [/saga|falabella|ripley|oechsle|paris|mercado ?libre|aliexpress|amazon|shein|zara|h&m|promart|sodimac|maestro/i, 'Compras'],
     [/cine|cineplanet|cinemark|teleticket|joinnus|steam|playstation|xbox|nintendo/i, 'Entretenimiento']
   ];
@@ -110,10 +110,11 @@
   }
 
   var viewYear, viewMonth; // mes que se está viendo
-  var currentTab = 'cards';
+  var currentTab = 'expenses';
   var editingId = null;
   var selectedCat = null;
   var selectedPay = null;
+  var pendingSource = null;
   var selectedKind = null; // null = gasto, 'cardPayment' = pago de tarjeta // 'card:<id>' | 'gen:<método>'
   var pendingRaw = null;  // texto de notificación del pago que se está creando
 
@@ -173,9 +174,14 @@
     return d.getFullYear() === y && d.getMonth() === m;
   }
 
-  // Un "pago de tarjeta" no es un gasto: baja la deuda de esa tarjeta.
+  // Tipos de registro (campo kind):
+  //  - sin kind: un gasto (cuenta en "Gastado este mes"; con tarjeta, además sube su deuda)
+  //  - 'cardPayment': pago de una tarjeta. No es gasto: baja la deuda de esa tarjeta.
+  //  - 'cardDebt': deuda anterior de una tarjeta. No es gasto del mes: solo sube su deuda.
   function isPay(e){ return e.kind === 'cardPayment'; }
-  function notPay(e){ return !isPay(e); }
+  function isDebt(e){ return e.kind === 'cardDebt'; }
+  function isSpend(e){ return !e.kind; }
+  var KIND_LABEL = { cardPayment: 'Pago de tarjeta', cardDebt: 'Deuda anterior' };
 
   // Lo que se debe en cada tarjeta: deuda inicial + consumos - pagos (por moneda).
   function cardDebt(card){
@@ -183,7 +189,7 @@
     state.expenses.forEach(function(e){
       if (e.cardId !== card.id) return;
       var cur = e.currency === 'USD' ? 'USD' : 'PEN';
-      d[cur] += isPay(e) ? -e.amount : e.amount;
+      d[cur] += isPay(e) ? -e.amount : e.amount; // gasto con tarjeta o deuda anterior: suma
     });
     d.PEN = Math.round(d.PEN * 100) / 100;
     d.USD = Math.round(d.USD * 100) / 100;
@@ -208,7 +214,7 @@
     var key = desc.trim().toLowerCase();
     for (var i = state.expenses.length - 1; i >= 0; i--) {
       var e = state.expenses[i];
-      if (notPay(e) && e.desc && e.desc.trim().toLowerCase() === key) return e.cat;
+      if (isSpend(e) && e.desc && e.desc.trim().toLowerCase() === key) return e.cat;
     }
     for (var j = 0; j < AUTO_CATEGORY.length; j++) {
       if (AUTO_CATEGORY[j][0].test(desc) && state.categories.some(function(c){ return c.name === AUTO_CATEGORY[j][1]; })) {
@@ -258,10 +264,10 @@
 
   function render(){
     var monthAll = state.expenses.filter(function(e){ return inMonth(e, viewYear, viewMonth); });
-    var monthItems = monthAll.filter(notPay);
+    var monthItems = monthAll.filter(isSpend);
     renderHeader(monthItems);
-    if (currentTab === 'cards') renderCards(monthItems, monthAll);
-    else if (currentTab === 'general') renderGeneral(monthItems);
+    if (currentTab === 'expenses') renderExpenses(monthItems);
+    else if (currentTab === 'debts') renderCards(monthItems, monthAll);
     else renderStats(monthItems);
   }
 
@@ -292,6 +298,13 @@
   }
 
   function itemHTML(e){
+    if (isDebt(e)) {
+      return '<button class="item" data-id="' + e.id + '">' +
+        '<span class="emoji">📌</span>' +
+        '<span class="info"><div class="desc">Deuda anterior</div>' +
+        '<div class="meta">💳 ' + esc(payLabel(e)) + (e.desc ? ' · ' + esc(e.desc) : '') + ' · no cuenta como gasto</div></span>' +
+        '<span class="amt">' + fmt(e.amount, e.currency) + '</span></button>';
+    }
     if (isPay(e)) {
       return '<button class="item" data-id="' + e.id + '">' +
         '<span class="emoji">💸</span>' +
@@ -321,7 +334,7 @@
       label = label.charAt(0).toUpperCase() + label.slice(1);
       if (date === todayISO()) label = 'Hoy';
       return '<div class="day-group"><div class="day-head"><span>' + esc(label) + '</span><span>' +
-        sumText(sums(list.filter(notPay))) + '</span></div><div class="day-card">' + list.map(itemHTML).join('') + '</div></div>';
+        sumText(sums(list.filter(isSpend))) + '</span></div><div class="day-card">' + list.map(itemHTML).join('') + '</div></div>';
     }).join('');
   }
 
@@ -335,7 +348,7 @@
       var cyc = currentCycle(card), cycHTML = '';
       if (cyc) {
         var cs = sums(state.expenses.filter(function(e){
-          if (e.cardId !== card.id || isPay(e)) return false;
+          if (e.cardId !== card.id || !isSpend(e)) return false;
           var d = parseISO(e.date);
           return d >= cyc.start && d <= cyc.end;
         }));
@@ -346,15 +359,15 @@
       var debt = cardDebt(card), debtHTML;
       if (debt.PEN <= 0 && debt.USD <= 0) {
         var favor = { PEN: -debt.PEN, USD: -debt.USD, total: 0 };
-        debtHTML = (favor.PEN || favor.USD) ? 'Saldo a favor: <b>' + sumText(favor) + '</b>' : 'Por pagar: <b>nada ✅</b>';
+        debtHTML = (favor.PEN || favor.USD) ? 'Saldo a favor<div class="cc-amt">' + sumText(favor) + '</div>'
+          : 'Por pagar<div class="cc-amt">Nada ✅</div>';
       } else {
-        debtHTML = 'Por pagar: <b>' + sumText({ PEN: Math.max(debt.PEN, 0), USD: Math.max(debt.USD, 0), total: 0 }) + '</b>';
+        debtHTML = 'Por pagar<div class="cc-amt">' + sumText({ PEN: Math.max(debt.PEN, 0), USD: Math.max(debt.USD, 0), total: 0 }) + '</div>';
       }
-      cycHTML += '<div class="cc-debt">' + debtHTML + '</div>';
       return '<button class="cc" data-card="' + card.id + '" style="--cc:' + esc(card.color || CARD_COLORS[0]) + '">' +
         '<div class="cc-name">💳 ' + esc(card.name) + (card.last4 ? ' <span class="cc-last4">•••• ' + esc(card.last4) + '</span>' : '') + '</div>' +
-        '<div class="cc-amt">' + sumText(s) + '</div>' +
-        '<div class="cc-count">' + mine.length + (mine.length === 1 ? ' consumo' : ' consumos') + ' en el mes</div>' +
+        '<div class="cc-debt">' + debtHTML + '</div>' +
+        '<div class="cc-month">Consumos del mes: ' + sumText(s) + ' (' + mine.length + ')</div>' +
         cycHTML + '</button>';
     }).join('') || '<p class="empty">Agrega tus tarjetas en Opciones (⋮).</p>';
 
@@ -369,15 +382,29 @@
     $('card-empty').classList.toggle('hidden', shown.length > 0);
   }
 
-  function renderGeneral(items){
-    var q = $('search').value.trim().toLowerCase();
-    var list = items.filter(function(e){ return !e.cardId; });
+  function renderExpenses(items){
+    var sel = $('exp-filter'), cur = sel.value;
+    var opts = '<option value="">Todos los medios de pago</option>' +
+      '<option value="cards">💳 Solo tarjetas de crédito</option>' +
+      state.cards.map(function(c){ return '<option value="card:' + c.id + '">💳 ' + esc(c.name) + '</option>'; }).join('') +
+      GENERAL_METHODS.map(function(m){ return '<option value="gen:' + esc(m) + '">' + METHOD_ICONS[m] + ' ' + esc(m) + '</option>'; }).join('');
+    sel.innerHTML = opts;
+    sel.value = cur;
+    if (sel.value !== cur) sel.value = '';
+
+    var f = sel.value, q = $('search').value.trim().toLowerCase();
+    var list = items.filter(function(e){
+      if (f === 'cards') return !!e.cardId;
+      if (f.indexOf('card:') === 0) return e.cardId === f.slice(5);
+      if (f.indexOf('gen:') === 0) return !e.cardId && (e.method || 'Otro') === f.slice(4);
+      return true;
+    });
     if (q) list = list.filter(function(e){
       return (e.desc || '').toLowerCase().indexOf(q) >= 0 || e.cat.toLowerCase().indexOf(q) >= 0 ||
-        (e.method || '').toLowerCase().indexOf(q) >= 0;
+        payLabel(e).toLowerCase().indexOf(q) >= 0;
     });
-    $('general-list').innerHTML = listHTML(list);
-    $('general-empty').classList.toggle('hidden', list.length > 0);
+    $('expense-list').innerHTML = listHTML(list);
+    $('expense-empty').classList.toggle('hidden', list.length > 0);
   }
 
   function barsHTML(map, iconFn){
@@ -410,7 +437,7 @@
     for (var i = 5; i >= 0; i--) {
       var d = new Date(viewYear, viewMonth - i, 1);
       var y = d.getFullYear(), m = d.getMonth();
-      cols.push({ y: y, m: m, total: sums(state.expenses.filter(function(e){ return notPay(e) && inMonth(e, y, m); })).total });
+      cols.push({ y: y, m: m, total: sums(state.expenses.filter(function(e){ return isSpend(e) && inMonth(e, y, m); })).total });
     }
     var max = Math.max.apply(null, cols.map(function(c){ return c.total; })) || 1;
     $('month-history').innerHTML = cols.map(function(c, idx){
@@ -424,21 +451,27 @@
   // ---------- Diálogo de pago ----------
 
   function renderKind(){
-    var paying = selectedKind === 'cardPayment';
+    var paying = !!selectedKind; // pago de tarjeta o deuda anterior: solo tarjetas, sin categoría
     document.querySelectorAll('#kind-picker [data-kind]').forEach(function(b){
       b.classList.toggle('selected', b.dataset.kind === (selectedKind || ''));
     });
     $('cat-field').classList.toggle('hidden', paying);
     $('installments-field').classList.toggle('hidden', paying);
-    $('pay-label').textContent = paying ? '¿Qué tarjeta pagaste?' : '¿Con qué pagaste?';
-    $('f-desc').placeholder = paying ? 'Opcional: desde qué cuenta, nota…' : 'Ej: Wong, Netflix, almuerzo…';
-    $('dialog-title').textContent = (editingId ? 'Editar ' : 'Nuevo ') + (paying ? 'pago de tarjeta' : 'pago');
+    $('pay-label').textContent = selectedKind === 'cardPayment' ? '¿Qué tarjeta pagaste?'
+      : selectedKind === 'cardDebt' ? '¿De qué tarjeta es la deuda?' : '¿Con qué pagaste?';
+    $('f-desc').placeholder = selectedKind === 'cardPayment' ? 'Opcional: desde qué cuenta, nota…'
+      : selectedKind === 'cardDebt' ? 'Opcional: ej. saldo al 12 de octubre' : 'Ej: Wong, Netflix, almuerzo…';
+    $('dialog-title').textContent = (editingId ? 'Editar ' : 'Nuevo ') +
+      (selectedKind ? KIND_LABEL[selectedKind].toLowerCase() : 'gasto');
+    $('kind-hint').textContent = selectedKind === 'cardDebt'
+      ? 'Lo que ya debías en la tarjeta antes de anotar aquí. Suma a "Por pagar" pero no cuenta como gasto del mes.'
+      : selectedKind === 'cardPayment' ? 'Lo que pagaste de la tarjeta. Resta de "Por pagar" y no cuenta como gasto.' : '';
     if (paying && (!selectedPay || selectedPay.indexOf('card:') !== 0) && state.cards[0]) selectedPay = 'card:' + state.cards[0].id;
     renderPayPicker();
   }
 
   function renderPayPicker(){
-    var paying = selectedKind === 'cardPayment';
+    var paying = !!selectedKind;
     var html = state.cards.map(function(c){
       var v = 'card:' + c.id;
       return '<button type="button" class="chip' + (selectedPay === v ? ' selected' : '') + '" data-pay="' + v + '">💳 ' + esc(c.name) + '</button>';
@@ -461,7 +494,7 @@
     var seen = {};
     $('desc-suggestions').innerHTML = state.expenses.slice().reverse()
       .filter(function(e){
-        if (isPay(e)) return false;
+        if (!isSpend(e)) return false;
         var k = (e.desc || '').toLowerCase();
         if (!k || seen[k]) return false;
         seen[k] = 1; return true;
@@ -476,6 +509,7 @@
     var e = id ? state.expenses.find(function(x){ return x.id === id; }) : null;
     var p = prefill || {};
     pendingRaw = e ? null : (p.raw || null);
+    pendingSource = e ? null : (p.source || null);
 
     selectedKind = e ? (e.kind || null) : (p.kind || null);
     $('f-amount').value = e ? e.amount : (p.amount || '');
@@ -490,9 +524,8 @@
     } else {
       if (p.cardId) selectedPay = 'card:' + p.cardId;
       else if (p.method) selectedPay = 'gen:' + p.method;
-      else selectedPay = currentTab === 'general' ? 'gen:Efectivo'
-        : 'card:' + (($('card-filter').value) || (state.cards[0] ? state.cards[0].id : ''));
-      if (selectedPay === 'card:') selectedPay = 'gen:Efectivo';
+      else if (currentTab === 'debts' && state.cards[0]) selectedPay = 'card:' + ($('card-filter').value || state.cards[0].id);
+      else selectedPay = lastPay();
       selectedCat = p.cat || guessCategory(p.desc) || state.categories[0].name;
     }
 
@@ -506,6 +539,16 @@
     renderSuggestions();
     $('expense-dialog').showModal();
     if (!e && !p.amount) setTimeout(function(){ $('f-amount').focus(); }, 50);
+  }
+
+  function lastPay(){
+    for (var i = state.expenses.length - 1; i >= 0; i--) {
+      var e = state.expenses[i];
+      if (!isSpend(e)) continue;
+      if (e.cardId && cardById(e.cardId)) return 'card:' + e.cardId;
+      if (!e.cardId) return 'gen:' + (e.method || 'Otro');
+    }
+    return 'gen:Efectivo';
   }
 
   function readPay(){
@@ -528,10 +571,13 @@
     viewYear = d.getFullYear(); viewMonth = d.getMonth();
   }
 
+  // Los pagos de tarjeta viven en Deudas; todo lo demás es un gasto.
+  function tabFor(e){ return isSpend(e) ? 'expenses' : 'debts'; }
+
   function setTab(tab){
     currentTab = tab;
     document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
-    ['cards', 'general', 'stats'].forEach(function(t){ $('tab-' + t).classList.toggle('hidden', t !== tab); });
+    ['expenses', 'debts', 'stats'].forEach(function(t){ $('tab-' + t).classList.toggle('hidden', t !== tab); });
     render();
   }
 
@@ -540,13 +586,13 @@
     var amount = parseAmount($('f-amount').value);
     if (!amount) { toast('Escribe un monto válido'); $('f-amount').focus(); return; }
     var pay = readPay();
-    var paying = selectedKind === 'cardPayment';
-    if (paying && !pay.cardId) { toast('Elige qué tarjeta pagaste'); return; }
+    var paying = !!selectedKind;
+    if (paying && !pay.cardId) { toast('Elige la tarjeta'); return; }
     var data = {
-      kind: paying ? 'cardPayment' : null,
+      kind: selectedKind || null,
       amount: amount,
       currency: $('f-currency').value,
-      cat: paying ? 'Pago de tarjeta' : (selectedCat || 'Otros'),
+      cat: paying ? KIND_LABEL[selectedKind] : (selectedCat || 'Otros'),
       desc: $('f-desc').value.trim(),
       date: $('f-date').value || todayISO(),
       cardId: pay.cardId,
@@ -559,13 +605,17 @@
       expenseChanged(e);
       toast('Pago actualizado');
     } else {
-      if (pendingRaw) data.raw = pendingRaw;
+      var twin = sameDayTwin(data);
+      if (twin && !confirm('Ya hay ' + (isSpend(twin) ? 'un gasto' : 'un registro de "' + KIND_LABEL[twin.kind] + '"') + ' de ' + fmt(twin.amount, twin.currency) +
+          (twin.desc ? ' (' + twin.desc + ')' : '') + ' ese mismo día, quizá anotado desde una notificación.\n\n¿Es otro pago distinto y quieres guardarlo igual?')) return;
+      if (pendingRaw) { data.raw = pendingRaw; data.source = pendingSource || 'manual'; }
+      else data.source = 'manual';
       addExpense(data);
       toast('Pago guardado');
     }
     $('expense-dialog').close();
     goToMonthOf(data.date);
-    setTab(data.cardId ? 'cards' : 'general');
+    setTab(tabFor(data));
   });
 
   $('btn-cancel').addEventListener('click', function(){ $('expense-dialog').close(); });
@@ -634,10 +684,80 @@
     };
   }
 
-  // Evita guardar dos veces la misma notificación (MacroDroid puede dispararse repetido).
-  function isDuplicate(raw){
-    var limit = Date.now() - 10 * 60 * 1000;
-    return state.expenses.some(function(e){ return e.raw === raw && (e.created || 0) > limit; });
+  // ---------- Duplicados ----------
+  // Un mismo pago suele avisarse varias veces: notificación del banco + correo
+  // de Gmail + SMS, o Yape + la app del banco. Reglas:
+  //  1. El mismo texto exacto en 24 h es la misma notificación repetida.
+  //  2. Mismo tipo, monto y moneda, avisado por OTRA app dentro de 30 min y sin
+  //     tarjetas distintas: es el mismo pago; el aviso nuevo solo completa datos.
+  //  3. Si la MISMA app avisa dos veces el mismo monto con textos distintos,
+  //     son dos pagos de verdad (ej. dos pasajes iguales) y se anotan los dos.
+  var DUP_WINDOW_MS = 30 * 60 * 1000;
+
+  function sameMoney(e, d){
+    return (e.kind || null) === (d.kind || null) &&
+      (e.currency || 'PEN') === (d.currency || 'PEN') &&
+      Math.abs(e.amount - d.amount) < 0.005;
+  }
+
+  function findDuplicate(pf, source, at){
+    var now = Date.now();
+    for (var i = state.expenses.length - 1; i >= 0; i--) {
+      var e = state.expenses[i];
+      if (pf.raw && e.raw === pf.raw && now - (e.created || 0) < 24 * 3600 * 1000) return e;
+    }
+    for (var j = state.expenses.length - 1; j >= 0; j--) {
+      var x = state.expenses[j];
+      if (!sameMoney(x, pf)) continue;
+      if (x.cardId && pf.cardId && x.cardId !== pf.cardId) continue;
+      var sameSource = source && (x.sources || [x.source]).indexOf(source) >= 0;
+      if (sameSource) continue;
+      if (differentMerchant(x.desc, pf.desc)) continue;
+      if (walletVsCard(x, pf) || walletVsCard(pf, x)) continue;
+      var close = Math.abs((x.notifiedAt || x.created || 0) - at) <= DUP_WINDOW_MS;
+      // un gasto anotado a mano ese mismo día también cuenta como el mismo pago
+      var manualSameDay = x.source === 'manual' && x.date === pf.date;
+      if (close || manualSameDay) return x;
+    }
+    return null;
+  }
+
+  function words(t){
+    return normText(t).split(/[^a-z0-9]+/).filter(function(w){ return w.length >= 3; });
+  }
+  function normText(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+  // "WONG SAN ISIDRO" y "E. WONG" comparten "wong": pueden ser el mismo pago. "WONG" y "TAMBO" no.
+  function differentMerchant(a, b){
+    if (!a || !b) return false;
+    var wa = words(a), wb = words(b);
+    if (!wa.length || !wb.length) return false;
+    return !wa.some(function(w){ return wb.indexOf(w) >= 0; });
+  }
+
+  // Un pago con Yape/Plin y uno con tarjeta de crédito son pagos distintos.
+  function walletVsCard(a, b){
+    return !a.cardId && (a.method === 'Yape' || a.method === 'Plin') && !!b.cardId;
+  }
+
+  // Completa el gasto ya anotado con lo que traiga el aviso repetido.
+  function mergeInto(e, pf, source){
+    var changed = false;
+    if (!e.desc && pf.desc) { e.desc = pf.desc; changed = true; if (e.cat === 'Otros' && pf.cat) e.cat = pf.cat; }
+    if (!e.cardId && pf.cardId && cardById(pf.cardId) && (e.method === 'Otro' || isPay(e))) {
+      e.cardId = pf.cardId; e.method = null; changed = true;
+    }
+    var srcs = e.sources || (e.source ? [e.source] : []);
+    if (source && srcs.indexOf(source) < 0) { e.sources = srcs.concat(source); changed = true; }
+    if (changed) expenseChanged(e);
+  }
+
+  function sameDayTwin(d){
+    for (var i = state.expenses.length - 1; i >= 0; i--) {
+      var e = state.expenses[i];
+      if (e.date === d.date && sameMoney(e, d) && !(e.cardId && d.cardId && e.cardId !== d.cardId)) return e;
+    }
+    return null;
   }
 
   function handleIncoming(){
@@ -665,10 +785,10 @@
     }
 
     if (params.get('auto') === '1' && pf.amount && !needsReview(pf)) {
-      var e = autoSave(pf);
-      if (!e) { toast('Ese pago ya estaba anotado'); return; }
+      var e = autoSave(pf, params.get('fuente') || 'enlace');
+      if (e.dup) { toast('Ese pago ya estaba anotado'); goToMonthOf(e.dup.date); setTab(tabFor(e.dup)); return; }
       goToMonthOf(e.date);
-      setTab(e.cardId ? 'cards' : 'general');
+      setTab(tabFor(e));
       toast(isPay(e) ? 'Pago de tarjeta anotado: ' + fmt(e.amount, e.currency) + ' a ' + payLabel(e)
         : 'Anotado automáticamente: ' + fmt(e.amount, e.currency) + (e.desc ? ' en ' + e.desc : ''));
       return;
@@ -679,20 +799,20 @@
   // Un pago de tarjeta sin tarjeta reconocida no se puede restar de ninguna: se pregunta.
   function needsReview(pf){ return pf.kind === 'cardPayment' && !pf.cardId; }
 
-  // Guarda sin preguntar; devuelve null si esa misma notificación ya se anotó hace poco.
-  function autoSave(pf){
-    if (isDuplicate(pf.raw)) return null;
+  // Guarda sin preguntar. Si es un pago ya anotado (ver Duplicados) devuelve
+  // { dup: gastoExistente } y solo completa sus datos.
+  function autoSave(pf, source, at){
+    at = at || Date.now();
+    source = source || 'enlace';
+    var dup = findDuplicate(pf, source, at);
+    if (dup) { mergeInto(dup, pf, source); return { dup: dup }; }
+    var base = { amount: pf.amount, currency: pf.currency, date: pf.date, installments: 1,
+      raw: pf.raw, source: source, notifiedAt: at };
     if (pf.kind === 'cardPayment') {
-      return addExpense({
-        kind: 'cardPayment', amount: pf.amount, currency: pf.currency, cat: 'Pago de tarjeta', desc: '',
-        date: pf.date, cardId: pf.cardId, method: null, installments: 1, raw: pf.raw
-      });
+      return addExpense(Object.assign(base, { kind: 'cardPayment', cat: 'Pago de tarjeta', desc: '', cardId: pf.cardId, method: null }));
     }
-    return addExpense({
-      amount: pf.amount, currency: pf.currency, cat: pf.cat || 'Otros', desc: pf.desc || '',
-      date: pf.date, cardId: pf.cardId || null, method: pf.cardId ? null : (pf.method || 'Otro'),
-      installments: 1, raw: pf.raw
-    });
+    return addExpense(Object.assign(base, { cat: pf.cat || 'Otros', desc: pf.desc || '',
+      cardId: pf.cardId || null, method: pf.cardId ? null : (pf.method || 'Otro') }));
   }
 
   // ---------- APK: notificaciones leídas por la app nativa ----------
@@ -703,22 +823,32 @@
     if (!Native) return;
     var list;
     try { list = JSON.parse(Native.takePending() || '[]'); } catch (e) { return; }
-    var saved = [], review = null;
-    list.forEach(function(text){
+    var saved = [], dups = 0, review = null;
+    list.forEach(function(item){
+      // la cola trae { text, pkg, at } (versiones viejas: solo el texto)
+      var text = typeof item === 'string' ? item : item.text;
+      var source = typeof item === 'string' ? 'android' : item.pkg;
+      var at = typeof item === 'string' ? Date.now() : item.at;
       var pf = prefillFromText(text).prefill;
       if (!pf.amount) return;
-      if (needsReview(pf)) { if (!review && !isDuplicate(pf.raw)) review = pf; return; }
-      var e = autoSave(pf);
-      if (e) saved.push(e);
+      if (!/\d{4}-\d{2}-\d{2}/.test(pf.date) || !GastosParser.parseNotification(text, []).date) pf.date = isoDate(new Date(at));
+      if (needsReview(pf)) {
+        if (!review && !findDuplicate(pf, source, at)) { review = pf; review.source = source; }
+        return;
+      }
+      var e = autoSave(pf, source, at);
+      if (e.dup) dups++; else saved.push(e);
     });
     if (review) openExpense(null, review);
-    if (!saved.length) return;
+    if (!saved.length) { if (dups) toast(dups === 1 ? 'Aviso repetido: ese pago ya estaba anotado' : dups + ' avisos repetidos ignorados'); return; }
     var last = saved[saved.length - 1];
     goToMonthOf(last.date);
-    setTab(last.cardId ? 'cards' : 'general');
-    toast(saved.length === 1
-      ? 'Anotado desde notificación: ' + fmt(last.amount, last.currency) + (last.desc ? ' en ' + last.desc : '')
-      : saved.length + ' pagos anotados desde notificaciones');
+    setTab(tabFor(last));
+    var msg = saved.length === 1
+      ? (isPay(last) ? 'Pago de tarjeta anotado: ' : 'Anotado: ') + fmt(last.amount, last.currency) + (last.desc ? ' en ' + last.desc : '')
+      : saved.length + ' pagos anotados desde notificaciones';
+    if (dups) msg += ' (' + dups + (dups === 1 ? ' aviso repetido ignorado)' : ' avisos repetidos ignorados)');
+    toast(msg);
   }
 
   function refreshNativeNotif(){
@@ -868,7 +998,7 @@
   $('btn-export-csv').addEventListener('click', function(){
     var rows = [['Fecha', 'Tipo', 'Tarjeta / medio', 'Categoría', 'Descripción', 'Moneda', 'Monto', 'Cuotas']];
     state.expenses.slice().sort(function(a, b){ return a.date.localeCompare(b.date); }).forEach(function(e){
-      rows.push([e.date, isPay(e) ? 'Pago de tarjeta' : e.cardId ? 'Tarjeta de crédito' : 'General', payLabel(e), e.cat, e.desc || '',
+      rows.push([e.date, KIND_LABEL[e.kind] || (e.cardId ? 'Tarjeta de crédito' : 'General'), payLabel(e), e.cat, e.desc || '',
         e.currency || 'PEN', e.amount.toFixed(2), e.installments || 1]);
     });
     var csv = rows.map(function(r){
@@ -932,6 +1062,7 @@
 
   $('search').addEventListener('input', render);
   $('card-filter').addEventListener('change', render);
+  $('exp-filter').addEventListener('change', render);
 
   $('card-summary').addEventListener('click', function(ev){
     var b = ev.target.closest('[data-card]');
@@ -957,7 +1088,7 @@
     registerCloud: function(c){ cloud = c; }
   };
 
-  setTab('cards');
+  setTab('expenses');
   handleIncoming();
   takeNativePending();
   refreshNativeNotif();

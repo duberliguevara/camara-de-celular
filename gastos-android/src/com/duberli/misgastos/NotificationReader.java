@@ -31,7 +31,7 @@ public class NotificationReader extends NotificationListenerService {
 
     /** Palabras de un gasto. */
     static final Pattern SPEND = Pattern.compile(
-            "consumo|compra|cargo|pagaste|pago|yapeaste|plineaste|transferiste|transferencia|retiro"
+            "consumo|compra|cargo|pagaste|pago|yapeaste|plineaste|transferiste|transferencia|retiro|recibo|servicio|recarga"
                     + "|tarjeta|d[eé]bito|cr[eé]dito|operaci[oó]n", FLAGS);
 
     /** Dinero que entra: no es un gasto (salvo que sea el pago de una tarjeta). */
@@ -68,7 +68,7 @@ public class NotificationReader extends NotificationListenerService {
 
         String text = extractText(n.extras);
         if (!looksLikePayment(text)) return;
-        if (!PendingStore.add(this, text)) return;
+        if (!PendingStore.add(this, text, pkg, sbn.getPostTime())) return;
 
         MainActivity.notifyNewPending();
         showDetected(this, text);

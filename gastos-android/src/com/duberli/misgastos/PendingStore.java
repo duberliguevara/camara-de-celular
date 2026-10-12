@@ -27,8 +27,13 @@ final class PendingStore {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    /** Agrega el texto si no se vio en las últimas 24 h. Devuelve false si era repetido. */
-    static synchronized boolean add(Context c, String text) {
+    /**
+     * Agrega el aviso si no se vio el mismo texto en las últimas 24 h. Guarda
+     * también qué app lo mandó y cuándo, para que la app reconozca el mismo
+     * pago avisado por varias apps (banco + Gmail + SMS). Devuelve false si
+     * era repetido.
+     */
+    static synchronized boolean add(Context c, String text, String pkg, long postTime) {
         SharedPreferences p = prefs(c);
         long now = System.currentTimeMillis();
         String key = Integer.toHexString(text.hashCode()) + ":" + text.length();
@@ -43,7 +48,11 @@ final class PendingStore {
 
             JSONArray queue = new JSONArray(p.getString(KEY_QUEUE, "[]"));
             if (queue.length() >= MAX_QUEUE) queue.remove(0);
-            queue.put(text);
+            JSONObject item = new JSONObject();
+            item.put("text", text);
+            item.put("pkg", pkg);
+            item.put("at", postTime > 0 ? postTime : now);
+            queue.put(item);
             p.edit().putString(KEY_SEEN, seen.toString()).putString(KEY_QUEUE, queue.toString()).apply();
             return true;
         } catch (JSONException e) {
@@ -52,7 +61,7 @@ final class PendingStore {
         }
     }
 
-    /** Devuelve todos los textos pendientes (JSON) y vacía la cola. */
+    /** Devuelve los avisos pendientes como JSON [{text, pkg, at}] y vacía la cola. */
     static synchronized String take(Context c) {
         SharedPreferences p = prefs(c);
         String queue = p.getString(KEY_QUEUE, "[]");
