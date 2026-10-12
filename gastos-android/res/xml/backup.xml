@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Incluye los datos del WebView (localStorage) en la copia de seguridad de Android. -->
+<full-backup-content>
+    <include domain="root" path="app_webview/" />
+    <include domain="sharedpref" path="." />
+</full-backup-content>

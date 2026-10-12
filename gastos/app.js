@@ -602,18 +602,65 @@
     }
 
     if (params.get('auto') === '1' && pf.amount) {
-      if (isDuplicate(pf.raw)) { toast('Ese pago ya estaba anotado'); return; }
-      var e = addExpense({
-        amount: pf.amount, currency: pf.currency, cat: pf.cat || 'Otros', desc: pf.desc || '',
-        date: pf.date, cardId: pf.cardId || null, method: pf.cardId ? null : (pf.method || 'Otro'),
-        installments: 1, raw: pf.raw
-      });
+      var e = autoSave(pf);
+      if (!e) { toast('Ese pago ya estaba anotado'); return; }
       goToMonthOf(e.date);
       setTab(e.cardId ? 'cards' : 'general');
       toast('Anotado automáticamente: ' + fmt(e.amount, e.currency) + (e.desc ? ' en ' + e.desc : ''));
       return;
     }
     openExpense(null, pf);
+  }
+
+  // Guarda sin preguntar; devuelve null si esa misma notificación ya se anotó hace poco.
+  function autoSave(pf){
+    if (isDuplicate(pf.raw)) return null;
+    return addExpense({
+      amount: pf.amount, currency: pf.currency, cat: pf.cat || 'Otros', desc: pf.desc || '',
+      date: pf.date, cardId: pf.cardId || null, method: pf.cardId ? null : (pf.method || 'Otro'),
+      installments: 1, raw: pf.raw
+    });
+  }
+
+  // ---------- APK: notificaciones leídas por la app nativa ----------
+
+  var Native = window.AndroidGastos || null;
+
+  function takeNativePending(){
+    if (!Native) return;
+    var list;
+    try { list = JSON.parse(Native.takePending() || '[]'); } catch (e) { return; }
+    var saved = [];
+    list.forEach(function(text){
+      var pf = prefillFromText(text).prefill;
+      if (!pf.amount) return;
+      var e = autoSave(pf);
+      if (e) saved.push(e);
+    });
+    if (!saved.length) return;
+    var last = saved[saved.length - 1];
+    goToMonthOf(last.date);
+    setTab(last.cardId ? 'cards' : 'general');
+    toast(saved.length === 1
+      ? 'Anotado desde notificación: ' + fmt(last.amount, last.currency) + (last.desc ? ' en ' + last.desc : '')
+      : saved.length + ' pagos anotados desde notificaciones');
+  }
+
+  function refreshNativeNotif(){
+    if (!Native) return;
+    var on = Native.isNotificationAccessEnabled();
+    $('native-notif-state').textContent = on
+      ? '✅ Activado: los avisos de consumo se anotan solos.'
+      : '⚠️ Desactivado.';
+    $('btn-native-notif').textContent = on ? 'Ajustes de acceso a notificaciones' : 'Activar lectura de notificaciones';
+  }
+
+  if (Native) {
+    $('native-notif').classList.remove('hidden');
+    $('macrodroid-field').classList.add('hidden');
+    $('btn-native-notif').addEventListener('click', function(){ Native.openNotificationAccessSettings(); });
+    // MainActivity dispara este evento al volver a la app y cuando llega una notificación con la app abierta.
+    window.addEventListener('gastosresume', function(){ takeNativePending(); refreshNativeNotif(); });
   }
 
   $('btn-paste').addEventListener('click', function(){
@@ -726,6 +773,11 @@
   });
 
   function download(filename, content, type){
+    if (Native) {
+      if (Native.saveFile(filename, content, type)) toast('Guardado en Descargas: ' + filename);
+      else toast('No se pudo guardar el archivo');
+      return;
+    }
     var blob = new Blob([content], { type: type });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -829,4 +881,6 @@
 
   setTab('cards');
   handleIncoming();
+  takeNativePending();
+  refreshNativeNotif();
 })();

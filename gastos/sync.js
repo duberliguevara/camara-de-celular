@@ -22,7 +22,10 @@
   var conf = loadConf();
 
   // Si la app se abrió desde el propio servidor, la dirección es esta misma.
-  function servedByServer(){ return location.protocol === 'https:' || location.hostname === 'localhost'; }
+  // En el APK la app se sirve desde appassets.androidplatform.net: ahí hay que escribir la dirección.
+  function servedByServer(){
+    return !window.AndroidGastos && (location.protocol === 'https:' || location.hostname === 'localhost');
+  }
   function baseUrl(){
     var u = (conf.url || '').trim().replace(/\/+$/, '');
     if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;

@@ -171,7 +171,13 @@
         <button type="button" id="btn-addcat" class="btn small">Agregar</button>
       </div>
     </div>
-    <div class="field">
+    <div id="native-notif" class="field hidden">
+      <label>Leer notificaciones del banco y Gmail</label>
+      <p class="hint">La app detecta sola los avisos de consumo (del banco, Yape o correos de Gmail) y los anota. Android te pedirá permitir el <b>acceso a notificaciones</b> para Mis Gastos.</p>
+      <p id="native-notif-state" class="hint"></p>
+      <button type="button" id="btn-native-notif" class="btn ghost full">Activar lectura de notificaciones</button>
+    </div>
+    <div id="macrodroid-field" class="field">
       <label>Registro automático (Android)</label>
       <p class="hint">Con la app MacroDroid puedes hacer que cada notificación del banco se anote sola. Pasos en el README de la carpeta <code>gastos/</code>. Usa este enlace en la macro:</p>
       <code id="auto-url" class="auto-url"></code>
@@ -201,7 +207,8 @@
 <script src="app.js"></script>
 <script src="sync.js"></script>
 <script>
-  if ('serviceWorker' in navigator) {
+  // En el APK los archivos vienen dentro de la app: no hace falta service worker.
+  if ('serviceWorker' in navigator && !window.AndroidGastos) {
     window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js'); });
   }
 </script>
